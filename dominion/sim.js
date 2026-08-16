@@ -872,6 +872,11 @@ function buildMap(grid, random) {
     return;
   }
 
+  if (grid.mapId === "theCrucible") {
+    buildCrucible(grid, random, { blob, patch, region });
+    return;
+  }
+
   if (grid.mapId === "threeCrowns") {
     buildThreeCrowns(grid, random, { blob });
     return;
@@ -1799,6 +1804,78 @@ function buildFourKings(grid, random, { blob, patch, region }) {
   }
 }
 
+function buildCrucible(grid, random, { blob, patch, region }) {
+  const W = grid.w;
+  const H = grid.h;
+  const midX = Math.floor(W / 2);
+  const midY = Math.floor(H / 2);
+
+  // 1. High Outer Volcanic Caldera Ring Ridge (Elevated Sheer Mountain Cliffs)
+  for (let angle = 0; angle < Math.PI * 2; angle += 0.08) {
+    const rx = Math.floor(midX + Math.cos(angle) * (W * 0.44));
+    const ry = Math.floor(midY + Math.sin(angle) * (H * 0.44));
+    if (rx >= 0 && rx < W && ry >= 0 && ry < H) {
+      blob(rx, ry, 5, ROCK);
+    }
+  }
+
+  // 2. Four Elevated Bastion Corner Mesas (High Tablelands)
+  blob(32, 32, 10, HILL);
+  blob(112, 32, 10, HILL);
+  blob(32, 112, 10, HILL);
+  blob(112, 112, 10, HILL);
+
+  // 3. Central Sunken Valley Basin with River Cross Channels
+  for (let t = 0; t < H; t++) {
+    const rx = Math.floor(midX + Math.sin(t * 0.1) * 4);
+    if ((t < midY - 14 || t > midY + 14) && rx >= 0 && rx < W) {
+      blob(rx, t, (t > 24 && t < H - 24) ? 2 : 3, WATER);
+    }
+  }
+  for (let t = 0; t < W; t++) {
+    const ry = Math.floor(midY + Math.cos(t * 0.1) * 4);
+    if ((t < midX - 14 || t > midX + 14) && ry >= 0 && ry < H) {
+      blob(t, ry, (t > 24 && t < W - 24) ? 2 : 3, WATER);
+    }
+  }
+
+  // 4. Central Contested Citadel Island (Raised Monolith Mesa)
+  blob(midX, midY, 11, ROCK);
+  blob(midX, midY, 6, HILL);
+
+  // 5. Rich Gold Veins in the Sunken Caldera & Mesa Ramps
+  blob(18, 28, 3, GOLD);
+  blob(28, 18, 3, GOLD);
+  blob(126, 28, 3, GOLD);
+  blob(116, 18, 3, GOLD);
+  blob(18, 116, 3, GOLD);
+  blob(28, 126, 3, GOLD);
+  blob(126, 116, 3, GOLD);
+  blob(116, 126, 3, GOLD);
+
+  // Contested Sunken Lowland Gold Seams
+  blob(midX - 18, midY - 18, 4, GOLD);
+  blob(midX + 18, midY - 18, 4, GOLD);
+  blob(midX - 18, midY + 18, 4, GOLD);
+  blob(midX + 18, midY + 18, 4, GOLD);
+  blob(midX, midY, 4, GOLD); // The Central Monolith Core
+
+  // 6. Lush Alpine Forest Groves in the Lowlands
+  blob(midX - 28, midY, 7, FOREST);
+  blob(midX + 28, midY, 7, FOREST);
+  blob(midX, midY - 28, 7, FOREST);
+  blob(midX, midY + 28, 7, FOREST);
+  blob(44, 44, 6, FOREST);
+  blob(100, 44, 6, FOREST);
+  blob(44, 100, 6, FOREST);
+  blob(100, 100, 6, FOREST);
+
+  // Clear 7x7 flat start pads around the 4 bases
+  for (const [sx, sy] of [[18, 18], [122, 18], [18, 122], [122, 122]]) {
+    blob(sx + 1, sy + 1, 7, GROUND);
+  }
+}
+
 // --- Setup -------------------------------------------------------------------
 
 /**
@@ -2062,6 +2139,19 @@ export const MAPS = {
     blurb:
       "A vast, asymmetric Himalayan expanse for 4 contending kings (AI or human). " +
       "Towering jagged summits, meandering glacial rivers, deep forest gorges, and a contested central fortress sanctuary.",
+  },
+  theCrucible: {
+    id: "theCrucible",
+    seats: 4,
+    symmetry: "none",
+    name: "The Crucible (कुण्ड द्रोणी)",
+    w: 144, h: 144,
+    starts: [[18, 18], [122, 18], [18, 122], [122, 122]],
+    weather: "fair",
+    biome: "alpine_himalaya",
+    blurb:
+      "A faithful 1:1 recreation of the iconic Warrior Kings Battles caldera. " +
+      "Four elevated corner bastion plateaus overlooking a deep sunken river basin with high sniper cliffs and contested central gold monoliths.",
   },
 };
 export const MAP_IDS = Object.keys(MAPS);
