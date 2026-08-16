@@ -22,7 +22,6 @@ import { Minimap3D } from "./minimap3d.js";
 import { Wheel3D } from "./wheel3d.js";
 import { FORMATIONS } from "./formations.js";
 import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
-import { initAudio, playCues, setSfxVolume } from "../src/audio.js";
 
 const TICK_DURATION = 1.0 / TICKS_PER_SECOND; // 50ms per simulation tick
 
@@ -203,7 +202,6 @@ class Swarajya3DApp {
 
   _ensureAudio() {
     if (!this.audioStarted) {
-      initAudio();
       this.loreAudio.init();
       this.loreAudio.setMapTerrain(this.currentMapId);
       this.audioStarted = true;
@@ -495,7 +493,6 @@ class Swarajya3DApp {
     if (sfxSlider) {
       sfxSlider.addEventListener("input", (e) => {
         const v = parseFloat(e.target.value);
-        setSfxVolume(v);
         this.loreAudio.setSfxVolume(v);
       });
     }
@@ -667,7 +664,14 @@ class Swarajya3DApp {
         }
 
         if (this.audioStarted && this.sim.sounds && this.sim.sounds.length > 0) {
-          playCues(this.sim.sounds, this.localPlayer);
+          for (const s of this.sim.sounds) {
+            if (s.cue === "build") this.loreAudio.playTempleBell(648);
+            else if (s.cue === "trained") this.loreAudio.playWarDrum(80, 0.35);
+            else if (s.cue === "hit") this.loreAudio.playWarDrum(55, 0.4);
+            else if (s.cue === "collapse") this.loreAudio.playWarDrum(40, 0.8);
+            else if (s.cue === "order") this.loreAudio.playWarDrum(75, 0.3);
+            else if (s.cue === "devotion") this.loreAudio.playTempleBell(720);
+          }
           this.sim.sounds.length = 0;
         }
 

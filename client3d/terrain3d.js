@@ -1,5 +1,5 @@
 // 3D Realistic Himalayan Alpine Environment & Terrain Renderer for Swarajya (Three.js)
-// Includes procedural multi-texture splatting, snow-capped peaks, deodar pines, scattered boulders, and wildflowers.
+// High Mountain Ridges (Elevation 54), Snowy Peaks, Steep Cliff Striations, and Deep Valleys.
 
 import { TILE, GROUND, ROCK, WATER, FOREST, HILL, GOLD } from "../dominion/grid.js";
 
@@ -35,21 +35,20 @@ export class Terrain3D {
     const segmentsX = w;
     const segmentsY = h;
     const geometry = new THREE.PlaneGeometry(worldW, worldH, segmentsX, segmentsY);
-    geometry.rotateX(-Math.PI / 2); // Lay flat on X-Z plane
+    geometry.rotateX(-Math.PI / 2);
 
     const posAttr = geometry.attributes.position;
     const colorAttr = new THREE.BufferAttribute(new Float32Array(posAttr.count * 3), 3);
     geometry.setAttribute("color", colorAttr);
 
     // Color definitions (Realistic Himalayan Alpine Palette)
-    const colorMeadow = new THREE.Color(0x3a5a40);  // Lush lower valley meadow
-    const colorMeadowLight = new THREE.Color(0x4f772d); // Sunny grass patch
-    const colorHill = new THREE.Color(0x588157);    // Mid alpine terrace
-    const colorSlateRock = new THREE.Color(0x4a4e69);// Slate stone rock face
-    const colorSnowCap = new THREE.Color(0xf1faee);  // Glacial snow peak
-    const colorWater = new THREE.Color(0x1d3557);   // Mountain glacial stream
-    const colorGold = new THREE.Color(0xd4a373);    // Copper-gold earth
-    const colorEarthPath = new THREE.Color(0x8a7051); // Cart road earth
+    const colorMeadow = new THREE.Color(0x3a5a40);     // Lush lower valley meadow
+    const colorMeadowLight = new THREE.Color(0x4f772d);// Sunny grass patch
+    const colorHill = new THREE.Color(0x588157);       // Mid alpine terrace
+    const colorSlateRock = new THREE.Color(0x4a4e69);  // Slate stone rock face
+    const colorSnowCap = new THREE.Color(0xf8f9fa);    // Glacial snow peak
+    const colorWater = new THREE.Color(0x1d3557);      // Mountain glacial stream
+    const colorGold = new THREE.Color(0xd4a373);       // Copper-gold earth
 
     for (let i = 0; i < posAttr.count; i++) {
       const gx = Math.min(w - 1, Math.floor((i % (segmentsX + 1))));
@@ -60,26 +59,27 @@ export class Terrain3D {
       let vertexColor = colorMeadow;
 
       if (tileType === HILL) {
-        elevation = 10;
+        elevation = 24; // Mid-elevation terrace
         vertexColor = colorHill;
       } else if (tileType === ROCK) {
-        elevation = 16;
-        vertexColor = colorSnowCap;
+        elevation = 54; // Towering Himalayan Mountain Peak
+        vertexColor = colorSnowCap; // Pure snow summit
       } else if (tileType === WATER) {
-        elevation = -3.5;
+        elevation = -4.5;
         vertexColor = colorWater;
       } else if (tileType === GOLD) {
-        elevation = 3;
+        elevation = 4;
         vertexColor = colorGold;
       } else {
-        // Subtle organic grass tone variation
         const noise = ((gx * 17 + gy * 31) % 5);
         vertexColor = noise > 2 ? colorMeadowLight : colorMeadow;
       }
 
-      // Add gentle procedural mountain noise for realism
-      const noise = ((gx * 17 + gy * 31) % 7) * 0.3;
-      elevation += (elevation > 0 ? noise : 0);
+      // Procedural mountain peak crags
+      if (elevation > 20) {
+        const crag = ((gx * 23 + gy * 47) % 11) * 0.9;
+        elevation += crag;
+      }
 
       posAttr.setY(i, elevation);
       colorAttr.setXYZ(i, vertexColor.r, vertexColor.g, vertexColor.b);
@@ -110,7 +110,7 @@ export class Terrain3D {
       metalness: 0.7,
     });
     const waterMesh = new THREE.Mesh(waterGeo, waterMat);
-    waterMesh.position.set(worldW / 2, -1.4, worldH / 2);
+    waterMesh.position.set(worldW / 2, -1.8, worldH / 2);
     this.terrainGroup.add(waterMesh);
 
     // 3. Environmental Props (Pines, Boulders, Gold Seams, Bushes)
@@ -128,7 +128,7 @@ export class Terrain3D {
         if (type === FOREST) {
           treePositions.push({ x: cx, y: 0, z: cz });
         } else if (type === GOLD) {
-          goldPositions.push({ x: cx, y: 3, z: cz });
+          goldPositions.push({ x: cx, y: 4, z: cz });
         } else if (type === GROUND && (tx * 13 + ty * 29) % 37 === 0) {
           boulderPositions.push({ x: cx + 4, y: 0, z: cz - 3 });
         } else if (type === GROUND && (tx * 19 + ty * 31) % 43 === 0) {
@@ -139,8 +139,8 @@ export class Terrain3D {
 
     // 3A. Instanced Multi-Tier Deodar Pines
     if (treePositions.length > 0) {
-      const treeGroupGeo = new THREE.ConeGeometry(5.2, 16, 5);
-      treeGroupGeo.translate(0, 8, 0);
+      const treeGroupGeo = new THREE.ConeGeometry(5.4, 18, 5);
+      treeGroupGeo.translate(0, 9, 0);
 
       const treeMat = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.92, flatShading: true });
       const treeMesh = new THREE.InstancedMesh(treeGroupGeo, treeMat, treePositions.length);
@@ -161,13 +161,13 @@ export class Terrain3D {
 
     // 3B. Instanced Glowing Gold Ore Seams
     if (goldPositions.length > 0) {
-      const goldGeo = new THREE.DodecahedronGeometry(3.6, 0);
+      const goldGeo = new THREE.DodecahedronGeometry(4.2, 0);
       const goldMat = new THREE.MeshStandardMaterial({
         color: 0xffb703,
         roughness: 0.25,
         metalness: 0.9,
         emissive: 0xd4a373,
-        emissiveIntensity: 0.35,
+        emissiveIntensity: 0.45,
       });
       const goldMesh = new THREE.InstancedMesh(goldGeo, goldMat, goldPositions.length);
       goldMesh.castShadow = true;
@@ -176,7 +176,7 @@ export class Terrain3D {
       goldPositions.forEach((pos, i) => {
         dummy.position.set(pos.x, pos.y, pos.z);
         dummy.rotation.set((i * 0.7) % 3, (i * 1.1) % 3, (i * 0.5) % 3);
-        dummy.scale.set(1.15, 1.35, 1.15);
+        dummy.scale.set(1.2, 1.4, 1.2);
         dummy.updateMatrix();
         goldMesh.setMatrixAt(i, dummy.matrix);
       });
@@ -186,7 +186,7 @@ export class Terrain3D {
 
     // 3C. Instanced Granite Boulders
     if (boulderPositions.length > 0) {
-      const boulderGeo = new THREE.DodecahedronGeometry(2.4, 0);
+      const boulderGeo = new THREE.DodecahedronGeometry(2.6, 0);
       const boulderMat = new THREE.MeshStandardMaterial({ color: 0x5c677d, roughness: 0.95, flatShading: true });
       const boulderMesh = new THREE.InstancedMesh(boulderGeo, boulderMat, boulderPositions.length);
       boulderMesh.castShadow = true;
@@ -205,7 +205,7 @@ export class Terrain3D {
 
     // 3D. Instanced Mountain Shrub Bushes
     if (bushPositions.length > 0) {
-      const bushGeo = new THREE.SphereGeometry(2.2, 5, 4);
+      const bushGeo = new THREE.SphereGeometry(2.4, 5, 4);
       const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.9, flatShading: true });
       const bushMesh = new THREE.InstancedMesh(bushGeo, bushMat, bushPositions.length);
       bushMesh.castShadow = true;
@@ -233,10 +233,10 @@ export class Terrain3D {
     const tx = Math.max(0, Math.min(this.grid.w - 1, Math.floor(worldX / TILE)));
     const ty = Math.max(0, Math.min(this.grid.h - 1, Math.floor(worldZ / TILE)));
     const tile = this.grid.cells[ty * this.grid.w + tx];
-    if (tile === HILL) return 10;
-    if (tile === ROCK) return 16;
-    if (tile === WATER) return -3.5;
-    if (tile === GOLD) return 3;
+    if (tile === HILL) return 24;
+    if (tile === ROCK) return 54;
+    if (tile === WATER) return -4.5;
+    if (tile === GOLD) return 4;
     return 0;
   }
 }

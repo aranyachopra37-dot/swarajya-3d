@@ -1,5 +1,5 @@
 // 3D RTS Physics-Damped Camera Controller for Swarajya (Three.js)
-// Supports panoramic zoom-out to view the entire battlefield, adaptive pan speed, and smooth inertia.
+// Supports panoramic zoom, Shift (+50% speed acceleration), and smooth inertia.
 
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
@@ -19,13 +19,13 @@ export class RtsCamera3D {
     this.targetVelocity = new THREE.Vector3(0, 0, 0);
     
     // Spherical orbit parameters with high-altitude panoramic range
-    this.distance = 320;
-    this.targetDistance = 320;
+    this.distance = 360;
+    this.targetDistance = 360;
     this.minDistance = 50;
-    this.maxDistance = 3500; // Allows full-map panoramic observation
+    this.maxDistance = 3500;
     
-    this.pitch = 55 * (Math.PI / 180);
-    this.targetPitch = 55 * (Math.PI / 180);
+    this.pitch = 42 * (Math.PI / 180);
+    this.targetPitch = 42 * (Math.PI / 180);
     this.minPitch = 12 * (Math.PI / 180); // Low-angle cinematic vista
     this.maxPitch = 85 * (Math.PI / 180); // Top-down tactical view
     
@@ -33,10 +33,11 @@ export class RtsCamera3D {
     this.targetYaw = 0;
 
     // Adaptive pan speed
-    this.basePanSpeed = 420;
+    this.basePanSpeed = 460;
     this.keys = {
       KeyW: false, KeyS: false, KeyA: false, KeyD: false,
-      ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false
+      ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+      ShiftLeft: false, ShiftRight: false
     };
     
     this.isDragging = false;
@@ -66,7 +67,7 @@ export class RtsCamera3D {
     }, { passive: false });
 
     this.domElement.addEventListener("mousedown", (e) => {
-      if (e.button === 1 || e.button === 2) { // Middle or Right click orbit
+      if (e.button === 1 || e.button === 2) {
         this.isDragging = true;
         this.lastMouse = { x: e.clientX, y: e.clientY };
       }
@@ -116,7 +117,7 @@ export class RtsCamera3D {
   }
 
   /**
-   * Frame update with smooth inertial physics for camera motion.
+   * Frame update with smooth inertial physics and Shift acceleration.
    * @param {number} dt - Seconds elapsed since last render frame
    */
   update(dt) {
@@ -135,9 +136,12 @@ export class RtsCamera3D {
     if (this.keys.KeyD || this.keys.ArrowRight) inputRight += 1;
     if (this.keys.KeyA || this.keys.ArrowLeft) inputRight -= 1;
 
-    // Adaptive speed: moving when zoomed out is faster
+    // Shift Key: +50% Speed Boost
+    const isShift = this.keys.ShiftLeft || this.keys.ShiftRight;
+    const shiftMultiplier = isShift ? 1.5 : 1.0;
+
     const altitudeScale = Math.max(1.0, this.distance / 250.0);
-    const currentSpeed = this.basePanSpeed * altitudeScale;
+    const currentSpeed = this.basePanSpeed * altitudeScale * shiftMultiplier;
 
     if (inputForward !== 0 || inputRight !== 0) {
       const forward = new THREE.Vector3();
@@ -156,7 +160,6 @@ export class RtsCamera3D {
       this.targetVelocity.x = moveVec.x * currentSpeed;
       this.targetVelocity.z = moveVec.z * currentSpeed;
     } else {
-      // Smooth friction deceleration
       const friction = Math.max(0, 1.0 - dt * 9.0);
       this.targetVelocity.x *= friction;
       this.targetVelocity.z *= friction;
@@ -165,7 +168,6 @@ export class RtsCamera3D {
     this.target.x += this.targetVelocity.x * dt;
     this.target.z += this.targetVelocity.z * dt;
 
-    // Map bounds clamping with generous panoramic margin
     const margin = this.distance * 0.4;
     const minX = -margin;
     const maxX = this.mapBounds.width + margin;
