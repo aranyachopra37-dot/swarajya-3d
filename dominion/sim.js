@@ -831,6 +831,11 @@ function buildMap(grid, random) {
     return;
   }
 
+  if (grid.mapId === "kailashSanctum") {
+    buildKailashSanctum(grid, random, { blob, patch, region });
+    return;
+  }
+
   if (grid.mapId === "threeCrowns") {
     buildThreeCrowns(grid, random, { blob });
     return;
@@ -1637,6 +1642,58 @@ function buildTrishulPass(grid, random, { blob, patch }) {
   blob(midX + 7, passYs[1], 3, GOLD);
 }
 
+function buildKailashSanctum(grid, random, { blob, patch, region }) {
+  const W = grid.w;
+  const H = grid.h;
+  const midX = Math.floor(W / 2);
+  const midY = Math.floor(H / 2);
+
+  // 1. Mount Kailash: The Sacred Central Snow-Crowned Peak
+  blob(midX, midY, 13, ROCK);
+  blob(midX, midY - 6, 8, ROCK);
+  blob(midX, midY + 6, 8, ROCK);
+
+  // 2. High Glacial Lakes:
+  // Northern: Lake Manasarovar (Pure round glacial lake)
+  blob(midX, Math.floor(H * 0.16), 11, WATER);
+  // Southern: Lake Rakshastal (Crescent dark lake)
+  blob(midX, Math.floor(H * 0.84), 11, WATER);
+
+  // 3. Two Strategic Mountain Passes (Northern Pass Y~34, Southern Pass Y~78)
+  const passYs = [Math.floor(H * 0.34), Math.floor(H * 0.78)];
+
+  // High Alpine Deodar & Cedar Forests on mountain slopes
+  const woods = [
+    [24, 20, 6], [24, 92, 6], [42, 38, 5], [42, 74, 5],
+    [58, 20, 5], [58, 92, 5], [30, 56, 6], [18, 56, 5]
+  ];
+  for (const [cx, cy, r] of woods) {
+    blob(cx, cy, r, FOREST);
+    blob(W - 1 - cx, cy, r, FOREST);
+  }
+
+  // High Hill Terraces for tactical elevation & defense
+  for (const [cx, cy, r] of [[44, 24, 6], [44, 88, 6], [62, 56, 5]]) {
+    blob(cx, cy, r, HILL);
+    blob(W - 1 - cx, cy, r, HILL);
+  }
+
+  // Sacred Mountain Gold veins:
+  // Base home seams
+  for (const [cx, cy, r] of [[18, 42, 2], [18, 70, 2], [38, 18, 2], [38, 94, 2]]) {
+    blob(cx, cy, r, GOLD);
+    blob(W - 1 - cx, cy, r, GOLD);
+  }
+
+  // Contested High Glacial Seams in the Passes and around Mount Kailash
+  blob(midX - 10, passYs[0], 3, GOLD);
+  blob(midX + 9, passYs[0], 3, GOLD);
+  blob(midX - 10, passYs[1], 3, GOLD);
+  blob(midX + 9, passYs[1], 3, GOLD);
+  blob(midX - 8, midY, 3, GOLD);
+  blob(midX + 7, midY, 3, GOLD);
+}
+
 // --- Setup -------------------------------------------------------------------
 
 /**
@@ -1870,9 +1927,23 @@ export const MAPS = {
     w: 128, h: 96,
     starts: [[8, 48], [117, 48]],
     weather: "snow",
+    biome: "alpine_himalaya",
     blurb:
       "The Three Ridges of the sacred Trishul peaks dividing the high snow line from " +
       "the alpine valleys. Two narrow switchback passes contested by glacial streams and mountain gold.",
+  },
+  kailashSanctum: {
+    id: "kailashSanctum",
+    seats: 2,
+    symmetry: "mirrorX",
+    name: "Kailash Sanctum (कैलाश धाम)",
+    w: 144, h: 112,
+    starts: [[12, 56], [129, 56]],
+    weather: "snow",
+    biome: "alpine_himalaya",
+    blurb:
+      "The Sacred Axis Mundi Mount Kailash standing between Lake Manasarovar and Lake Rakshastal. " +
+      "Towering glacial pinnacles, deep mountain passes, and contested high-altitude gold seams.",
   },
 };
 export const MAP_IDS = Object.keys(MAPS);

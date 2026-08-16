@@ -32,7 +32,7 @@ class Swarajya3DApp {
     this.container = document.getElementById("canvas-container");
     this.selection = new Set();
     this.localPlayer = 0;
-    this.currentMapId = "trishulPass";
+    this.currentMapId = "kailashSanctum";
     this.currentAiTier = 1; // Durgadhyaksha
     this.fogOfWarEnabled = false;
     this.placingBuildingType = null;
@@ -113,7 +113,7 @@ class Swarajya3DApp {
     window.addEventListener("resize", () => this._onResize());
   }
 
-  _initSim(mapId = "trishulPass", seed = 94301, localPlayer = 0) {
+  _initSim(mapId = "kailashSanctum", seed = 94301, localPlayer = 0) {
     if (this.terrain && this.terrain.terrainGroup) {
       this.scene.remove(this.terrain.terrainGroup);
     }
@@ -125,7 +125,7 @@ class Swarajya3DApp {
     this.currentMapId = mapId;
     this.sim = createSim(seed, mapId);
 
-    const map = MAPS[mapId] || MAPS.trishulPass;
+    const map = MAPS[mapId] || MAPS.kailashSanctum || MAPS.trishulPass;
     const worldW = map.w * TILE;
     const worldH = map.h * TILE;
 
@@ -137,15 +137,19 @@ class Swarajya3DApp {
 
     // Cinematic default camera pitch (42 degrees)
     this.rtsCamera.targetPitch = 42 * (Math.PI / 180);
-    this.rtsCamera.targetDistance = 360;
+    this.rtsCamera.targetDistance = 380;
 
     if (!this.minimap) {
       this.minimap = new Minimap3D(document.body, this.rtsCamera, this.camera);
     }
     this.minimap.initTerrain(this.sim);
 
+    if (this.loreAudio) {
+      this.loreAudio.setMapTerrain(mapId);
+    }
+
     if (this.sky) {
-      this.sky.setWeather(map.weather || (mapId === "trishulPass" ? "snow" : "clear"));
+      this.sky.setWeather(map.weather || (mapId === "kailashSanctum" || mapId === "trishulPass" ? "snow" : "clear"));
     }
 
     if (!this.fog) {
