@@ -113,7 +113,7 @@ class Swarajya3DApp {
     window.addEventListener("resize", () => this._onResize());
   }
 
-  _initSim(mapId = "kailashSanctum", seed = 94301, localPlayer = 0) {
+  _initSim(mapId = "kailashSanctum", seed = 94301, localPlayer = 0, scenarioId = null) {
     if (this.terrain && this.terrain.terrainGroup) {
       this.scene.remove(this.terrain.terrainGroup);
     }
@@ -123,9 +123,11 @@ class Swarajya3DApp {
 
     this.localPlayer = localPlayer;
     this.currentMapId = mapId;
-    this.sim = createSim(seed, mapId);
+    this.currentScenarioId = scenarioId;
+    this.sim = createSim(seed, mapId, scenarioId);
 
-    const map = MAPS[mapId] || MAPS.kailashSanctum || MAPS.trishulPass;
+    const actualMapId = this.sim.scenario ? this.sim.scenario.mapId : mapId;
+    const map = MAPS[actualMapId] || MAPS.kailashSanctum || MAPS.trishulPass;
     const worldW = map.w * TILE;
     const worldH = map.h * TILE;
 
@@ -145,11 +147,11 @@ class Swarajya3DApp {
     this.minimap.initTerrain(this.sim);
 
     if (this.loreAudio) {
-      this.loreAudio.setMapTerrain(mapId);
+      this.loreAudio.setMapTerrain(actualMapId);
     }
 
     if (this.sky) {
-      this.sky.setWeather(map.weather || (mapId === "kailashSanctum" || mapId === "trishulPass" ? "snow" : "clear"));
+      this.sky.setWeather(map.weather || (actualMapId === "kailashSanctum" || actualMapId === "trishulPass" ? "snow" : "clear"));
     }
 
     if (!this.fog) {
@@ -161,6 +163,18 @@ class Swarajya3DApp {
 
     if (this.scene.fog) {
       this.scene.fog.density = this.fogOfWarEnabled ? 0.0012 : 0.00035;
+    }
+
+    // Campaign HUD display
+    const campHud = document.getElementById("campaign-hud");
+    if (campHud) {
+      if (this.sim.scenario) {
+        campHud.style.display = "block";
+        const titleEl = document.getElementById("campaign-title");
+        if (titleEl) titleEl.innerText = this.sim.scenario.title;
+      } else {
+        campHud.style.display = "none";
+      }
     }
 
     // Focus on starting Manor
@@ -185,6 +199,17 @@ class Swarajya3DApp {
         (seat, res, amt) => this._dispatchCommand(cmd.tribute(seat, res, amt))
       );
     }
+  }
+
+  startCampaign(chapterId) {
+    this._ensureAudio();
+    this.matchStarted = true;
+    this.isOnline = false;
+    this.fogOfWarEnabled = false;
+    this._initSim("trishulPass", 94301, 0, chapterId);
+
+    const menuModal = document.getElementById("main-menu-modal");
+    if (menuModal) menuModal.style.display = "none";
   }
 
   _initMultiplayer() {
@@ -820,9 +845,43 @@ class Swarajya3DApp {
                 });
               }
               this.loreAudio.playTempleBell(720);
+            } else if (ev.type === "vfx_vajra") {
+              if (this.vfx) {
+                const pts = [{ x: ev.fromX, y: 0, z: ev.fromY }, ...ev.targets.map(t => ({ x: t.x, y: 0, z: t.y }))];
+                this.vfx.spawnVajraLightning(pts);
+                for (const t of ev.targets) {
+                  this.vfx.spawnDamageText(t.x, 0, t.y, 65, "flank");
+                }
+              }
+            } else if (ev.type === "vfx_kavacha") {
+              if (this.vfx) {
+                this.vfx.spawnKavachaWard(ev.x, 0, ev.y, ev.radius);
+              }
+            } else if (ev.type === "vfx_battlecry") {
+              if (this.vfx) {
+                const u = this.sim.units.find(x => x.id === ev.unitId);
+                if (u) this.vfx.spawnBattlecryAura(u.x, 0, u.y, ev.radius);
+              }
+            } else if (ev.type === "vfx_prana_death") {
+              if (this.vfx) {
+                this.vfx.spawnPranaDissolve(ev.x, 0, ev.y);
+              }
             }
           }
           this.sim.events.length = 0;
+        }
+
+        // Live Campaign Objectives Tracking
+        if (this.sim.scenario && this.sim.scenario.objectives) {
+          const listEl = document.getElementById("campaign-objectives-list");
+          if (listEl) {
+            listEl.innerHTML = this.sim.scenario.objectives.map(o => `
+              <div style="display:flex; align-items:center; gap:6px; color:${o.done ? '#7fd48f' : '#d1d5db'};">
+                <span>${o.done ? '✓' : '◻'}</span>
+                <span style="${o.done ? 'text-decoration:line-through; opacity:0.7;' : ''}">${o.desc} ${o.total ? `(${o.count || 0}/${o.total})` : ''}</span>
+              </div>
+            `).join("");
+          }
         }
 
         const playerPath = this.sim.players[this.localPlayer]?.path;
@@ -942,11 +1001,33 @@ class Swarajya3DApp {
         const sym = u.carryKind === "gold" ? "🟡" : u.carryKind === "timber" ? "🌲" : "🌾";
         carryHtml = `<div style="font-size:11px; color:#ffd166; margin-top:2px;">Carrying: ${sym} ${u.carrying} ${u.carryKind}</div>`;
       }
+
+      let heroHtml = "";
+      if (u.isHero) {
+        const nextXp = [0, 100, 250, 500, 1000][u.level || 1] || 1000;
+        const prevXp = [0, 0, 100, 250, 500][u.level || 1] || 0;
+        const xpPct = Math.min(100, Math.max(0, Math.round(((u.xp - prevXp) / Math.max(1, nextXp - prevXp)) * 100)));
+        const auraName = u.heroType === "senapati" ? "🛡️ Aura of Valour (+25% Atk Spd, +15 Armor)" : "🌿 Aura of Prana (+2.4 HP/s Regen)";
+        heroHtml = `
+          <div style="margin-top:6px; background:#181224; border:1px solid #ffd166; border-radius:6px; padding:6px 8px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:2px;">
+              <span style="color:#ffd166; font-weight:bold;">👑 Level ${u.level || 1} Hero</span>
+              <span style="color:#9b5de5; font-weight:bold;">XP: ${u.xp || 0} / ${nextXp}</span>
+            </div>
+            <div style="height:6px; background:#1f2430; border-radius:3px; overflow:hidden; margin-bottom:4px;">
+              <div style="height:100%; width:${xpPct}%; background:linear-gradient(90deg, #9b5de5, #ffd166);"></div>
+            </div>
+            <div style="font-size:10px; color:#a7f3d0;">${auraName}</div>
+          </div>
+        `;
+      }
+
       infoCard.innerHTML = `
         <div class="sel-title">${u.spec.name}</div>
         <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
         <div class="sel-stats">HP: ${Math.round(u.hp)} / ${u.maxHp} | Dmg: ${u.spec.damage || 0}</div>
         ${carryHtml}
+        ${heroHtml}
       `;
       infoCard.style.display = "block";
     } else if (selBuildings.length === 1) {
@@ -1043,7 +1124,34 @@ class Swarajya3DApp {
     const armory = selBuildings.find(b => b.spec.id === "armory");
     const factory = selBuildings.find(b => b.spec.id === "factory");
 
-    if (hasWorker) {
+    if (selUnits.length === 1 && selUnits[0].spec.abilities) {
+      const u = selUnits[0];
+      for (const abId of u.spec.abilities) {
+        const cd = (u.cooldowns && u.cooldowns[abId]) || 0;
+        const abNames = {
+          vajra: "⚡ Vajra Storm",
+          kavacha: "🛡️ Kavacha Ward",
+          trample: "🌪️ Trample Charge",
+          agni: "🔥 Agni Fire",
+          battlecry: "📯 War Horn"
+        };
+        const abDescs = {
+          vajra: "Chain lightning for 65 damage across 4 foes",
+          kavacha: "Spiritual barrier (+60 shield for 10s)",
+          trample: "Charge forward at 2x speed with knockback",
+          agni: "Flaming boulder creating ground fire zone",
+          battlecry: "Celestial horn granting +35% damage"
+        };
+        actions.push({
+          id: `cast_${abId}`,
+          label: abNames[abId] || abId,
+          cost: cd > 0 ? `⏳ ${Math.ceil(cd / 20)}s` : "Cast",
+          desc: abDescs[abId] || "Cast ability",
+          abilityId: abId,
+          unitId: u.id,
+        });
+      }
+    } else if (hasWorker) {
       actions = [
         { id: "build_farm", label: "Kshetra (Farm)", cost: "40g 30w", desc: "Grows grain" },
         { id: "build_warehouse", label: "Kosha (Warehouse)", cost: "60g 50w", desc: "Storehouse" },
@@ -1057,6 +1165,8 @@ class Swarajya3DApp {
     } else if (manor) {
       actions = [
         { id: "train_peasant", label: "Praja (Peasant)", cost: "50g", desc: "Worker" },
+        { id: "train_senapati", label: "👑 Senapati Indra", cost: "200g 120f", desc: "Himalayan Commander & Hero" },
+        { id: "train_acharya", label: "🔮 Kaula Acharya", cost: "220g 140f", desc: "Tantric Sage & Hero" },
       ];
     } else if (barracks) {
       actions = [
@@ -1095,8 +1205,16 @@ class Swarajya3DApp {
         if (!btn) return;
         const act = btn.dataset.action;
 
-        if (act === "train_peasant" && manor) {
+        if (act.startsWith("cast_") && selUnits.length === 1) {
+          const abilityId = act.replace("cast_", "");
+          const u = selUnits[0];
+          this._dispatchCommand(cmd.cast(u.id, abilityId, u.tx, u.ty));
+        } else if (act === "train_peasant" && manor) {
           this._dispatchCommand(cmd.train(manor.id, "peasant"));
+        } else if (act === "train_senapati" && manor) {
+          this._dispatchCommand(cmd.train(manor.id, "senapati"));
+        } else if (act === "train_acharya" && manor) {
+          this._dispatchCommand(cmd.train(manor.id, "acharya"));
         } else if (act === "train_spearman" && barracks) {
           this._dispatchCommand(cmd.train(barracks.id, "spearman"));
         } else if (act === "train_archer" && barracks) {
@@ -1105,6 +1223,10 @@ class Swarajya3DApp {
           this._dispatchCommand(cmd.train(barracks.id, "yogini"));
         } else if (act === "train_ratha" && armory) {
           this._dispatchCommand(cmd.train(armory.id, "ratha"));
+        } else if (act === "train_catapult" && factory) {
+          this._dispatchCommand(cmd.train(factory.id, "catapult"));
+        } else if (act === "train_ram" && factory) {
+          this._dispatchCommand(cmd.train(factory.id, "ram"));
         } else if (act === "form_line") {
           this._dispatchCommand(cmd.form(Array.from(this.selection), "line"));
         } else if (act === "form_wedge") {

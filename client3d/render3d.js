@@ -853,6 +853,96 @@ export class Render3D {
       staff.position.set(2.5, 8.5, 0);
       group.add(staff);
 
+    } else if (uType === "senapati") {
+      // Senapati Indra: Mounted Himalayan Commander with Gilded Barding & War Banner
+      // 1. Armored War Stallion
+      const horseBodyGeo = new THREE.BoxGeometry(7, 6, 14);
+      const horseBody = new THREE.Mesh(horseBodyGeo, this.materials.woodDark);
+      horseBody.position.y = 7.0;
+      horseBody.castShadow = true;
+      group.add(horseBody);
+
+      const horseNeckGeo = new THREE.BoxGeometry(4, 8, 5);
+      horseNeckGeo.rotateX(0.5);
+      const horseNeck = new THREE.Mesh(horseNeckGeo, this.materials.woodDark);
+      horseNeck.position.set(0, 10.5, 6.0);
+      group.add(horseNeck);
+
+      const bardingGeo = new THREE.BoxGeometry(7.4, 4.5, 10);
+      const barding = new THREE.Mesh(bardingGeo, this.materials.roofGold);
+      barding.position.set(0, 7.2, 0);
+      group.add(barding);
+
+      // 2. Mounted General
+      const torsoGeo = new THREE.CylinderGeometry(2.0, 2.4, 6.5, 8);
+      const torso = new THREE.Mesh(torsoGeo, this.materials.roofGold);
+      torso.position.set(0, 13.0, 0);
+      torso.castShadow = true;
+      group.add(torso);
+
+      const helmGeo = new THREE.ConeGeometry(2.2, 3.2, 8);
+      const helm = new THREE.Mesh(helmGeo, this.materials.bronzeArmor);
+      helm.position.set(0, 17.5, 0);
+      group.add(helm);
+
+      // Gilded Talwar Sword in Right Hand
+      const sword = new THREE.Mesh(new THREE.BoxGeometry(0.4, 9, 1.2), this.materials.ironBright);
+      sword.position.set(3.5, 13.0, 3.0);
+      sword.rotation.x = -0.6;
+      group.add(sword);
+
+      // Fluttering Saffron Battle Banner (Dhvaja) on Back
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 22), this.materials.woodDark);
+      pole.position.set(-2.0, 16.0, -4.0);
+      group.add(pole);
+
+      const flag = new THREE.Mesh(new THREE.BoxGeometry(0.2, 6.0, 10.0), ownerMat);
+      flag.position.set(-2.0, 21.0, -8.5);
+      group.add(flag);
+
+      // Golden Halo Aura Ring at base
+      const haloGeo = new THREE.RingGeometry(8.5, 9.5, 32);
+      haloGeo.rotateX(-Math.PI / 2);
+      const halo = new THREE.Mesh(haloGeo, new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide }));
+      halo.position.y = 0.5;
+      group.add(halo);
+
+    } else if (uType === "acharya") {
+      // Kaula Acharya: Tantric Sage with Flowing Saffron Robes & Floating Trishula
+      const torsoGeo = new THREE.CylinderGeometry(1.8, 2.2, 6.0, 8);
+      const torso = new THREE.Mesh(torsoGeo, this.materials.clothRobe);
+      torso.position.y = 8.0;
+      torso.castShadow = true;
+      group.add(torso);
+
+      const headGeo = new THREE.SphereGeometry(1.5, 8, 8);
+      const head = new THREE.Mesh(headGeo, this.materials.skin);
+      head.position.y = 12.0;
+      group.add(head);
+
+      const crownGeo = new THREE.TorusGeometry(1.8, 0.3, 6, 12);
+      crownGeo.rotateX(Math.PI / 2);
+      const crown = new THREE.Mesh(crownGeo, new THREE.MeshBasicMaterial({ color: 0x9b5de5 }));
+      crown.position.y = 12.8;
+      group.add(crown);
+
+      // Floating Sacred Trishula (Trident)
+      const trishulGroup = new THREE.Group();
+      trishulGroup.position.set(3.5, 12.0, 1.0);
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 16), this.materials.roofGold);
+      trishulGroup.add(shaft);
+      const tHead = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4.5, 4.0), this.materials.roofGold);
+      tHead.position.y = 8.5;
+      trishulGroup.add(tHead);
+      group.add(trishulGroup);
+
+      // Lotus Prana Aura Base Ring
+      const auraGeo = new THREE.RingGeometry(7.0, 8.2, 32);
+      auraGeo.rotateX(-Math.PI / 2);
+      const aura = new THREE.Mesh(auraGeo, new THREE.MeshBasicMaterial({ color: 0x00f5d4, side: THREE.DoubleSide }));
+      aura.position.y = 0.5;
+      group.add(aura);
+
     } else if (uType === "ratha") {
       // Ratha: War Chariot with 2 Heavy Wheels & Mounted Ballista
       const cabGeo = new THREE.BoxGeometry(14, 6, 10);

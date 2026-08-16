@@ -431,6 +431,14 @@
     <button class="header-btn" id="open-menu-btn">⚙️ Settings & Map</button>
   </div>
 
+  <!-- Campaign Objective Tracker HUD -->
+  <div id="campaign-hud" style="display:none; position:absolute; top:70px; left:16px; z-index:10; background:rgba(14,18,26,0.92); border:1px solid #e09f3e; border-radius:8px; padding:10px 14px; width:270px; backdrop-filter:blur(8px); box-shadow:0 4px 16px rgba(0,0,0,0.5);">
+    <div style="font-family:'Cinzel',serif; font-size:12px; font-weight:bold; color:#ffd166; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+      <span>📜</span> <span id="campaign-title">Chapter I: The Pass of Trishul</span>
+    </div>
+    <div id="campaign-objectives-list" style="font-size:11px; color:#d1d5db; display:flex; flex-direction:column; gap:5px;"></div>
+  </div>
+
   <!-- Minimal Army Roster -->
   <div id="army-roster-panel">
     <h3>ARMY ROSTER</h3>
@@ -467,23 +475,26 @@
 
       <!-- Mode Tabs -->
       <div class="menu-tabs">
-        <button id="tab-sp-btn" class="tab-btn active" onclick="switchTab('sp')">🤖 Single Player</button>
+        <button id="tab-sp-btn" class="tab-btn active" onclick="switchTab('sp')">🤖 Skirmish</button>
+        <button id="tab-campaign-btn" class="tab-btn" onclick="switchTab('campaign')">📜 Campaign</button>
         <button id="tab-mp-btn" class="tab-btn" onclick="switchTab('mp')">🌐 Online 1v1</button>
         <button id="tab-help-btn" class="tab-btn" onclick="switchTab('help')">📖 How to Play</button>
       </div>
 
-      <!-- Shared Settings -->
-      <div class="menu-row">
-        <label>Battleground Map</label>
-        <select id="menu-map-select" class="menu-select"></select>
-      </div>
+      <!-- Shared Settings (for Skirmish) -->
+      <div id="skirmish-settings">
+        <div class="menu-row">
+          <label>Battleground Map</label>
+          <select id="menu-map-select" class="menu-select"></select>
+        </div>
 
-      <div class="menu-row">
-        <label>Fog of War (Mountain Mist)</label>
-        <label class="menu-toggle">
-          <input type="checkbox" id="menu-fow-check">
-          <span style="font-size:12px; color:#9ca3af;">Enable</span>
-        </label>
+        <div class="menu-row">
+          <label>Fog of War (Mountain Mist)</label>
+          <label class="menu-toggle">
+            <input type="checkbox" id="menu-fow-check">
+            <span style="font-size:12px; color:#9ca3af;">Enable</span>
+          </label>
+        </div>
       </div>
 
       <!-- Single Player Panel -->
@@ -493,6 +504,53 @@
           <select id="menu-ai-select" class="menu-select"></select>
         </div>
         <button id="menu-start-btn" class="menu-btn-primary">ENTER THE SACRED BATTLEFIELD</button>
+      </div>
+
+      <!-- Campaign Mode Panel -->
+      <div id="panel-campaign" class="menu-panel">
+        <div style="display:flex; flex-direction:column; gap:10px; text-align:left;">
+          <!-- Chapter 1 -->
+          <div style="background:#141822; border:1px solid #f4a261; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter I: The Mountain Pass of Trishul</span>
+              <span style="font-size:10px; background:#457b9d; color:#fff; padding:2px 6px; border-radius:4px;">Novice</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              Raiders descend from the snowy crags to seize the ancestral pass. Command Senapati Indra, construct an Akhara, survive 3 raiding assaults, and defeat the Chieftain.
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter1')" style="margin-top:0; padding:8px 0; font-size:12px;">
+              ⚔️ Play Chapter I
+            </button>
+          </div>
+
+          <!-- Chapter 2 -->
+          <div style="background:#141822; border:1px solid #9b5de5; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter II: Trial of the 8-Headed Naga</span>
+              <span style="font-size:10px; background:#9b5de5; color:#fff; padding:2px 6px; border-radius:4px;">Adept</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              Rogue cultists have desecrated the sacred mountain terrace. Guide Kaula Acharya, train 4 Yoginis, harness the celestial Vajra Storm, and cleanse the sacred Shrine.
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter2')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #9b5de5, #f4a261);">
+              ⚡ Play Chapter II
+            </button>
+          </div>
+
+          <!-- Chapter 3 -->
+          <div style="background:#141822; border:1px solid #e76f51; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter III: The Siege of Kailash Sanctum</span>
+              <span style="font-size:10px; background:#e76f51; color:#fff; padding:2px 6px; border-radius:4px;">Master</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              The mountain citadel of the usurper sits heavily fortified behind stone walls. Assemble a siege train of Catapults and Rams to conquer the mountain palace.
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter3')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #e76f51, #d4a373);">
+              🏰 Play Chapter III
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Online 1v1 Multiplayer Panel -->
@@ -590,11 +648,17 @@
   <script>
     function switchTab(tab) {
       document.getElementById('tab-sp-btn').classList.toggle('active', tab === 'sp');
+      document.getElementById('tab-campaign-btn').classList.toggle('active', tab === 'campaign');
       document.getElementById('tab-mp-btn').classList.toggle('active', tab === 'mp');
       document.getElementById('tab-help-btn').classList.toggle('active', tab === 'help');
+
       document.getElementById('panel-sp').classList.toggle('active', tab === 'sp');
+      document.getElementById('panel-campaign').classList.toggle('active', tab === 'campaign');
       document.getElementById('panel-mp').classList.toggle('active', tab === 'mp');
       document.getElementById('panel-help').classList.toggle('active', tab === 'help');
+
+      const skirmishEl = document.getElementById('skirmish-settings');
+      if (skirmishEl) skirmishEl.style.display = (tab === 'campaign' || tab === 'help') ? 'none' : 'block';
     }
   </script>
 

@@ -584,6 +584,7 @@ export const UNITS = {
     plain: "Tantric Mystic. Swift esoteric adept who channels lightning bolts and spiritual wards.", cost: { gold: 110, food: 70 },
     buildTicks: 20 * 8,
     hp: 85, damage: 16, reload: 22, range: 115, speed: 62, radius: 8,
+    abilities: ["vajra", "kavacha"],
     colour: "#e76f51",
   },
   ratha: {
@@ -592,7 +593,91 @@ export const UNITS = {
     buildTicks: 20 * 11,
     hp: 240, damage: 20, reload: 34, range: 160, speed: 76, radius: 12,
     vsBuilding: 3.0, siege: true,
+    abilities: ["trample"],
     colour: "#d4a373",
+  },
+  senapati: {
+    id: "senapati", name: "Senapati Indra",
+    plain: "Supreme General & Hero. Mounted Himalayan commander. Radiates an Aura of Valour (+25% attack speed / +15 armor to nearby allies). Gains XP and levels up in battle.",
+    cost: { gold: 200, food: 120 },
+    buildTicks: 20 * 15,
+    hp: 450, damage: 28, reload: 20, range: 28, speed: 84, radius: 12,
+    isHero: true, heroType: "senapati",
+    auraRange: 90, auraBuff: { attackSpeed: 0.25, armor: 15 },
+    abilities: ["battlecry", "trample"],
+    colour: "#f4a261",
+  },
+  acharya: {
+    id: "acharya", name: "Kaula Acharya",
+    plain: "Tantric Sage & Hero. Channels celestial energy, radiating an Aura of Prana (+2.5 HP/s regeneration to nearby allies). Casts powerful Vajra storms and Kavacha shields.",
+    cost: { gold: 220, food: 140 },
+    buildTicks: 20 * 16,
+    hp: 320, damage: 24, reload: 22, range: 130, speed: 56, radius: 9,
+    isHero: true, heroType: "acharya",
+    auraRange: 100, auraBuff: { regen: 2.5, magicResist: 0.20 },
+    abilities: ["vajra", "kavacha"],
+    colour: "#9b5de5",
+  },
+};
+
+export const ABILITIES = {
+  vajra: {
+    id: "vajra",
+    name: "Vajra Storm",
+    desc: "Unleash celestial chain lightning striking the target and arcing to 3 nearby enemies for 65 damage.",
+    cooldown: 120, // 6 seconds
+    range: 150,
+    radius: 65,
+    damage: 65,
+    maxChains: 4,
+    icon: "⚡",
+    sound: "vajra",
+  },
+  kavacha: {
+    id: "kavacha",
+    name: "Kavacha Warding",
+    desc: "Conjure a glowing Tantric spiritual barrier granting +60 temporary shield to all friendly units in radius for 10 seconds.",
+    cooldown: 160, // 8 seconds
+    range: 0,
+    radius: 70,
+    shield: 60,
+    duration: 200,
+    icon: "🛡️",
+    sound: "devotion",
+  },
+  trample: {
+    id: "trample",
+    name: "Trample Charge",
+    desc: "Surge forward in a devastating cavalry charge at double speed, dealing 45 impact damage and knocking back infantry.",
+    cooldown: 140, // 7 seconds
+    range: 160,
+    damage: 45,
+    duration: 50,
+    icon: "🌪️",
+    sound: "order",
+  },
+  agni: {
+    id: "agni",
+    name: "Agni Shila",
+    desc: "Launch an incendiary flaming boulder that creates a burning fire patch on the ground dealing continuous damage.",
+    cooldown: 180, // 9 seconds
+    range: 280,
+    radius: 38,
+    duration: 160,
+    damagePerSec: 14,
+    icon: "🔥",
+    sound: "build",
+  },
+  battlecry: {
+    id: "battlecry",
+    name: "Aura of Valour",
+    desc: "Sound the celestial Himalayan war horn, granting +35% damage and movement speed to all nearby friendly forces.",
+    cooldown: 160, // 8 seconds
+    range: 0,
+    radius: 110,
+    duration: 160,
+    icon: "📯",
+    sound: "warHorn",
   },
 };
 
@@ -2176,9 +2261,70 @@ export const MAPS = {
 };
 export const MAP_IDS = Object.keys(MAPS);
 
-export function createSim(seed = 1, mapId = "twoGates") {
+export const SCENARIOS = {
+  chapter1: {
+    id: "chapter1",
+    chapter: 1,
+    title: "Chapter I: The Mountain Pass of Trishul",
+    mapId: "trishulPass",
+    hero: "senapati",
+    difficulty: "Novice",
+    briefing: "Warlord raiders descend from the high snowy crags to seize the sacred mountain pass. Command Senapati Indra, construct an Akhara, defend the pass against 3 raiding assaults, and vanquish the Raider Chieftain.",
+    objectives: [
+      { id: "build_barracks", desc: "Construct an Akhara (Barracks)", done: false },
+      { id: "survive_waves", desc: "Defend the Pass against 3 Raiding Waves", done: false, count: 0, total: 3 },
+      { id: "defeat_chieftain", desc: "Eliminate the Raider Chieftain in the North", done: false },
+    ],
+    waves: [
+      { tick: 400, units: [{ type: "spearman", count: 4 }], msg: "⚠️ First Raiding Vanguard approaches through the southern gap!" },
+      { tick: 900, units: [{ type: "spearman", count: 6 }, { type: "archer", count: 3 }], msg: "⚠️ Second Raiding Warband sighted ascending the terrace!" },
+      { tick: 1500, units: [{ type: "warRider", count: 3 }, { type: "spearman", count: 8 }, { type: "ratha", count: 1 }], chieftain: true, msg: "⚔️ The Raider Chieftain arrives at the head of the war host!" }
+    ],
+  },
+  chapter2: {
+    id: "chapter2",
+    chapter: 2,
+    title: "Chapter II: Trial of the 8-Headed Naga",
+    mapId: "ashenReach",
+    hero: "acharya",
+    difficulty: "Adept",
+    briefing: "Rogue cultists have desecrated the ancient mountain terrace. Guide Kaula Acharya, train a cadre of Yoginis, harness the celestial Vajra Storm, and cleanse the sacred Naga Shrine.",
+    objectives: [
+      { id: "train_yoginis", desc: "Train 4 Yoginis at your Akhara", done: false, count: 0, total: 4 },
+      { id: "cast_vajra", desc: "Cast Vajra Storm 2 times in battle", done: false, count: 0, total: 2 },
+      { id: "destroy_shrine", desc: "Purify the Rogue Mountain Stronghold", done: false },
+    ],
+    waves: [
+      { tick: 500, units: [{ type: "archer", count: 5 }, { type: "spearman", count: 5 }], msg: "⚡ Rogue acolytes launch a sortie against your encampment!" },
+      { tick: 1100, units: [{ type: "yogini", count: 3 }, { type: "guardian", count: 4 }], msg: "⚡ Cultist mystics channel dark prana towards your gates!" }
+    ],
+  },
+  chapter3: {
+    id: "chapter3",
+    chapter: 3,
+    title: "Chapter III: The Siege of Kailash Sanctum",
+    mapId: "kailashSanctum",
+    hero: "senapati",
+    difficulty: "Master",
+    briefing: "The mountain fortress of the usurper sits heavily fortified behind stone walls and watchtowers. Assemble a mighty siege train with Sthapati engineers, battering rams and catapults to storm the citadel.",
+    objectives: [
+      { id: "raise_keep", desc: "Raise your Asana to a Keep (Shira Durg)", done: false },
+      { id: "erect_catapults", desc: "Erect 2 Catapults or Rams", done: false, count: 0, total: 2 },
+      { id: "destroy_citadel", desc: "Raze the Usurper's Mountain Palace", done: false },
+    ],
+    waves: [
+      { tick: 600, units: [{ type: "warRider", count: 4 }, { type: "archer", count: 6 }], msg: "🏹 Fortress defenders sortie from the outer barbican!" },
+      { tick: 1300, units: [{ type: "ratha", count: 2 }, { type: "guardian", count: 6 }], msg: "🛡️ Heavy fortress guards counter-attack your siege engines!" }
+    ],
+  },
+};
+export const SCENARIO_IDS = Object.keys(SCENARIOS);
+
+export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
+  const scenario = scenarioId && SCENARIOS[scenarioId] ? JSON.parse(JSON.stringify(SCENARIOS[scenarioId])) : null;
+  const actualMapId = scenario ? scenario.mapId : mapId;
   const random = makeRng(seed);
-  const map = MAPS[mapId] ?? MAPS.twoGates;
+  const map = MAPS[actualMapId] ?? MAPS.twoGates;
   const grid = createGrid(map.w, map.h);
   grid.mapId = map.id;
   buildMap(grid, random);
@@ -2186,20 +2332,13 @@ export function createSim(seed = 1, mapId = "twoGates") {
   const sim = {
     seed,
     mapId: grid.mapId,
+    scenarioId: scenario ? scenario.id : null,
+    scenario,
+    hazards: [],
     grid,
     tick: 0,
     over: false,
     winner: null,
-
-    // `goldRate` is a handicap, and it lives here rather than inside the AI
-    // because it is part of how the match was SET UP, not something a player
-    // does during it. Set it before the first tick and never after, or a replay
-    // stops reproducing. Only the top ladder tier uses it, and it is shown in
-    // the interface — an opponent that cheats quietly is the thing players hate
-    // most, and rightly.
-    // One per start on the map, rather than a hardcoded pair. `seq` counts the
-    // structures a player has laid down and exists only to break targeting ties
-    // fairly — see `rank()`.
     players: map.starts.map(([, ], i) => ({
       id: i,
       name: SEAT_NAMES[i] ?? `Player ${i + 1}`,
@@ -2207,40 +2346,24 @@ export function createSim(seed = 1, mapId = "twoGates") {
       timber: START_TIMBER,
       food: START_FOOD,
       starving: false,
-      // Unaligned until a path-house stands. `pathLocked` is set by a Castle,
-      // after which losing every house of your path does NOT set you free.
       path: null,
       pathLocked: false,
       goldRate: 1,
       colour: SEAT_COLOURS[i],
       seq: 0,
-      // A player whose manor has fallen. Their army goes with it — see
-      // `checkEnd` for why leaving it on the field would be worse.
       out: false,
     })),
-
     buildings: [],
-    // Foundations. A building no longer appears when you pay for it — you pay
-    // for a marked-out footprint, and peasants have to walk over and raise it.
     sites: [],
     units: [],
     projectiles: [],
-
     inputs: [],
     nextInput: 0,
     nextId: 1,
-
-    // Flow fields, keyed by destination tile. Shared by every unit heading
-    // there, and thrown away whole whenever the map changes shape.
     fields: new Map(),
     fieldsDirty: false,
-
-    // What is left in each seam, keyed by tile index. Built from the map, so it
-    // is part of the setup and identical on both peers from the first tick.
     seams: new Map(),
-    // Tiles somebody has started cutting. Absent means untouched, not empty.
     woods: new Map(),
-
     events: [],
     sounds: [],
     diplomacy: Array.from({ length: map.starts.length }, (_, i) =>
@@ -2252,24 +2375,19 @@ export function createSim(seed = 1, mapId = "twoGates") {
     sim.seams.set(idx(grid, tx, ty), GOLD_PER_TILE);
   }
 
-  // Mirrored starts, and the peasants to work them. Starting with none would
-  // mean the first thirty seconds of every match are identical and unskippable.
-  //
-  // BOTH manors go down before ANY peasant does, and that ordering is
-  // load-bearing. `spawnUnit` places a unit on the side of its building facing
-  // the enemy — so when the two were interleaved, player 0's peasants were
-  // placed while no enemy manor existed yet, fell back to the first tile of a
-  // row-major scan, and mustered on the wrong side of their own hall. Player 1's
-  // had an enemy to orient by and mustered correctly. Mirror matches on
-  // Kingsmoor went 0-12 from that alone, and the state diverged on tick one.
   const manors = map.starts.map(([sx, sy], owner) =>
     placeBuilding(sim, owner, "manor", sx, sy)
   );
   for (const manor of manors) {
     for (let i = 0; i < START_PEASANTS; i++) spawnUnit(sim, manor, "peasant");
   }
-  // Setup is not gameplay: the muster sounds and lines from placing the opening
-  // pieces would otherwise all fire on tick zero.
+
+  // If scenario has a designated hero, spawn the hero for player 0!
+  if (sim.scenario && sim.scenario.hero && manors[0]) {
+    spawnUnit(sim, manors[0], sim.scenario.hero);
+    say(sim, `⚔️ Campaign Mission: ${sim.scenario.title}`, true);
+  }
+
   sim.events.length = 0;
   sim.sounds.length = 0;
 
@@ -3294,6 +3412,11 @@ function applyDueInputs(sim) {
       building.rally = { tx: input.tx, ty: input.ty };
       sound(sim, "order", input.owner);
     }
+
+    if (input.kind === "cast") {
+      queueCast(sim, input.owner, input.unitId, input.ability, input.tx, input.ty, input.targetId);
+      continue;
+    }
   }
 }
 
@@ -3314,9 +3437,197 @@ export function step(sim) {
   runCarts(sim);
   trainUnits(sim);
   feedArmy(sim);
+  processAbilitiesAndHazards(sim);
+  processHeroesAndAuras(sim);
+  processCampaign(sim);
   moveUnits(sim);
   fight(sim);
   checkEnd(sim);
+}
+
+function processAbilitiesAndHazards(sim) {
+  // Cooldowns, shields, charges, and buffs for units
+  for (const u of sim.units) {
+    if (u.cooldowns) {
+      for (const k in u.cooldowns) {
+        if (u.cooldowns[k] > 0) u.cooldowns[k]--;
+      }
+    }
+    if (u.shieldTicks > 0) {
+      u.shieldTicks--;
+      if (u.shieldTicks === 0) u.shield = 0;
+    }
+    if (u.buff && u.buff.ticks > 0) {
+      u.buff.ticks--;
+      if (u.buff.ticks === 0) u.buff = null;
+    }
+    if (u.charge && u.charge.ticks > 0) {
+      u.charge.ticks--;
+      // Charge collision check with enemy infantry
+      for (const enemy of sim.units) {
+        if (enemy.owner !== u.owner && enemy.hp > 0 && !enemy.spec.siege && !enemy.spec.flies) {
+          const d2 = (enemy.x - u.x) ** 2 + (enemy.y - u.y) ** 2;
+          if (d2 <= (u.spec.radius + enemy.spec.radius + 6) ** 2) {
+            enemy.hp -= u.charge.damage;
+            const angle = Math.atan2(enemy.y - u.y, enemy.x - u.x);
+            enemy.x += Math.cos(angle) * 16;
+            enemy.y += Math.sin(angle) * 16;
+            u.charge.damage = Math.max(10, u.charge.damage - 15);
+          }
+        }
+      }
+      if (u.charge.ticks === 0) u.charge = null;
+    }
+  }
+
+  // Hazards (Agni Fire Patches)
+  if (sim.hazards && sim.hazards.length > 0) {
+    for (const h of sim.hazards) {
+      h.ticks--;
+      for (const u of sim.units) {
+        if (u.owner !== h.owner && u.hp > 0 && !u.spec.flies) {
+          const d2 = (u.x - h.x) ** 2 + (u.y - h.y) ** 2;
+          if (d2 <= h.radius ** 2) {
+            u.hp -= h.dps;
+          }
+        }
+      }
+    }
+    sim.hazards = sim.hazards.filter((h) => h.ticks > 0);
+  }
+}
+
+const XP_THRESHOLDS = [0, 100, 250, 500, 1000];
+
+function processHeroesAndAuras(sim) {
+  // Reset transient aura states
+  for (const u of sim.units) {
+    u.auraValour = false;
+    u.auraPrana = false;
+  }
+
+  const heroes = sim.units.filter((u) => u.isHero && u.hp > 0);
+  for (const hero of heroes) {
+    hero.level = hero.level || 1;
+    hero.xp = hero.xp || 0;
+
+    // Level up check
+    if (hero.level < 5 && hero.xp >= XP_THRESHOLDS[hero.level]) {
+      hero.level++;
+      hero.maxHp = Math.round(hero.spec.hp * (1 + (hero.level - 1) * 0.25));
+      hero.hp = hero.maxHp;
+      say(sim, `👑 ${hero.spec.name} has advanced to Level ${hero.level}!`, true);
+      sound(sim, "devotion", hero.owner);
+    }
+
+    const auraRange = (hero.spec.auraRange || 90) * (1 + (hero.level - 1) * 0.15);
+    const range2 = auraRange * auraRange;
+
+    for (const u of sim.units) {
+      if (u.owner === hero.owner && u.hp > 0) {
+        const d2 = (u.x - hero.x) ** 2 + (u.y - hero.y) ** 2;
+        if (d2 <= range2) {
+          if (hero.heroType === "senapati") {
+            u.auraValour = true;
+          } else if (hero.heroType === "acharya") {
+            u.auraPrana = true;
+            // Healing prana: +2.4 HP/sec (0.12 HP/tick)
+            u.hp = Math.min(u.maxHp, u.hp + 0.12);
+          }
+        }
+      }
+    }
+  }
+}
+
+function processCampaign(sim) {
+  if (!sim.scenario || sim.over) return;
+  const sc = sim.scenario;
+
+  // Wave Spawning
+  if (sc.waves) {
+    for (const w of sc.waves) {
+      if (sim.tick === w.tick) {
+        const enemyManor = sim.buildings.find((b) => b.owner === 1 && b.spec.isHeart) || sim.buildings[0];
+        if (enemyManor) {
+          for (const item of w.units) {
+            for (let c = 0; c < item.count; c++) {
+              spawnUnit(sim, enemyManor, item.type);
+            }
+          }
+          if (w.chieftain) {
+            const ch = makeUnit(sim, 1, UNITS.senapati, enemyManor.tx, enemyManor.ty);
+            ch.isChieftain = true;
+            sim.units.push(ch);
+          }
+        }
+        say(sim, w.msg, true);
+        sound(sim, "hit", 0);
+      }
+    }
+  }
+
+  // Objectives tracking
+  if (sc.objectives) {
+    for (const obj of sc.objectives) {
+      if (obj.done) continue;
+
+      if (obj.id === "build_barracks") {
+        if (sim.buildings.some((b) => b.owner === 0 && b.spec.id === "barracks" && b.hp >= b.maxHp)) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Construct an Akhara!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "train_yoginis") {
+        const count = sim.units.filter((u) => u.owner === 0 && u.spec.id === "yogini").length;
+        obj.count = count;
+        if (count >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Train 4 Yoginis!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "raise_keep") {
+        if (manorTier(sim, 0) >= 1) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Raise Asana to Keep!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "erect_catapults") {
+        const engines = sim.units.filter((u) => u.owner === 0 && (u.spec.id === "catapult" || u.spec.id === "ram")).length;
+        obj.count = engines;
+        if (engines >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Erect 2 Siege Engines!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "survive_waves") {
+        if (sim.tick >= 1600 && !sim.units.some((u) => u.owner === 1 && u.isChieftain)) {
+          obj.done = true;
+          obj.count = 3;
+        }
+      } else if (obj.id === "defeat_chieftain") {
+        if (sim.tick > 1500 && !sim.units.some((u) => u.owner === 1 && u.isChieftain)) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Raider Chieftain Defeated!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "destroy_shrine" || obj.id === "destroy_citadel") {
+        const enemyHeart = sim.buildings.find((b) => b.owner === 1 && b.spec.isHeart);
+        if (!enemyHeart) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Enemy Stronghold Cleansed!`, true);
+          sound(sim, "devotion", 0);
+        }
+      }
+    }
+
+    if (sc.objectives.every((o) => o.done)) {
+      sim.over = true;
+      sim.winner = 0;
+      say(sim, `🏆 CAMPAIGN CHAPTER COMPLETE! Swarajya is victorious!`, true);
+      sound(sim, "build", 0);
+    }
+  }
 }
 
 /**
@@ -4146,19 +4457,24 @@ function makeUnit(sim, owner, spec, tx, ty) {
     chaseId: null,
     carrying: 0,
     carryKind: "gold",
-    // Which battalion he stands in, and how many shots he has left. Both are
-    // null/0 for everything that has neither, so nothing downstream has to ask
-    // what kind of unit it is holding first.
     band: null,
     ammo: spec.ammo ?? 0,
     resupply: 0,
     mineTimer: 0,
 
+    isHero: !!spec.isHero,
+    heroType: spec.heroType || null,
+    level: spec.isHero ? 1 : 0,
+    xp: 0,
+    cooldowns: {},
+    shield: 0,
+    shieldTicks: 0,
+    buff: null,
+    charge: null,
+
     holding: false,
     targetId: null,
 
-    // Orders waiting their turn. Empty for almost every unit almost always —
-    // it only fills when the player holds Ctrl and clicks more than once.
     plan: [],
   };
 }
@@ -4587,6 +4903,14 @@ function fight(sim) {
    * into the arithmetic that `acting` exists to keep out of it.
    */
   const land = (target, dmg) => {
+    if (target.shield > 0) {
+      if (target.shield >= dmg) {
+        target.shield -= dmg;
+        return;
+      }
+      dmg -= target.shield;
+      target.shield = 0;
+    }
     const band = target.band != null ? bands.get(target.band) : null;
     if (!band || band.length <= 1) {
       target.hp -= dmg;
@@ -4612,25 +4936,8 @@ function fight(sim) {
 
   // A ROUND IS SIMULTANEOUS. Everyone who was alive when the round began acts,
   // on the state as it was then, and deaths are resolved at the end.
-  //
-  // Both halves of that matter and both were bugs. Removing a unit mid-loop used
-  // to reassign `sim.units` while a for-of held the old array, so the dead still
-  // swung. Fixing that by skipping dead actors and dead targets looked correct
-  // and was worse: skipping a target that something else already killed this
-  // round means whoever acts LAST never wastes a shot on a corpse, and units act
-  // in id order, so the player who happened to build later won every fight by a
-  // hair. It was a clean 5-0 in mirror matches and completely invisible.
-  //
-  // Overkill now happens to both sides equally, which is the only version of it
-  // that is fair. Anything that reads `hp` to decide whether to act reintroduces
-  // the ordering.
   const acting = sim.units.filter((u) => u.hp > 0);
 
-  // WHAT EACH BATTALION IS SHOOTING AT, decided once per band by its senior man.
-  //
-  // Chosen by `rank`, which is the project's one fair tie-break — deciding a
-  // band's target from "whichever member the loop reached first" would be a seat
-  // advantage of exactly the kind this file has already paid for three times.
   const bandTarget = new Map();
   for (const [id, members] of bands) {
     const leader = members.reduce((a, b) => (rank(a, b) <= 0 ? a : b));
@@ -4641,16 +4948,9 @@ function fight(sim) {
   for (const unit of acting) {
     if (unit.cooldown > 0) unit.cooldown -= 1;
 
-    // A peasant with work to do does not stop to fight. He has a pitchfork so
-    // that a cornered one is not entirely free to kill, not so he can be an army
-    // — and a peasant line that downs tools every time a scout rides past is a
-    // peasant line that never delivers any gold.
     let target =
       unit.spec.worker && unit.job ? null : findTarget(sim, unit, hash);
 
-    // A man in a battalion shoots what the battalion shoots, IF HE CAN REACH IT.
-    // Without the reach check a formed-up line would all fire at something only
-    // the front rank can see, which is not concentration, it is paralysis.
     if (unit.band != null && bandTarget.has(unit.band)) {
       const shared = bandTarget.get(unit.band);
       if (shared.hp > 0 && inReach(unit, shared)) target = shared;
@@ -4659,21 +4959,20 @@ function fight(sim) {
     unit.targetId = target ? target.id : null;
     if (!target || unit.cooldown > 0) continue;
 
-    // Out of arrows. He keeps his place in the line and stops contributing,
-    // which is the whole point: the blob is still there and no longer a threat.
     if (unit.spec.ammo) {
       if ((unit.ammo ?? 0) <= 0) continue;
       unit.ammo -= 1;
     }
 
-    unit.cooldown = unit.spec.reload;
-    // Siege hits walls, not men. A ram that did 96 to a manor and 96 to a
-    // spearman would not be a ram, it would be the best soldier in the game.
+    if (unit.auraValour) unit.cooldown = Math.max(1, Math.round(unit.spec.reload * 0.75));
+    else unit.cooldown = unit.spec.reload;
+
     const isStructure = Boolean(target.spec.tiles);
-    const dmg = isStructure && unit.spec.vsBuilding
+    let dmg = isStructure && unit.spec.vsBuilding
       ? unit.spec.damage * unit.spec.vsBuilding
       : unit.spec.damage;
-    // A building is never in a battalion, so it takes the blow whole.
+    if (unit.buff && unit.buff.dmgMul) dmg *= unit.buff.dmgMul;
+
     if (isStructure) target.hp -= dmg;
     else land(target, dmg);
     sim.projectiles.push({
@@ -4685,21 +4984,12 @@ function fight(sim) {
 
   // Buildings that shoot take their turn on the same state as everyone else.
   for (const b of sim.buildings) {
-    // A HALL SHOOTS AT ITS OWN TIER, NOT ITS SPEC'S.
-    //
-    // Read through one accessor rather than off `b.spec.attack` in four places:
-    // this loop reads range, reload and damage separately, and a Palace that
-    // reached further but still hit like a Manor is exactly the kind of
-    // half-applied upgrade nobody notices until it decides a match.
     const gun = b.spec.isHeart ? MANOR_TIERS[b.tier].attack : b.spec.attack;
     if (!gun) continue;
 
     b.cooldown = (b.cooldown ?? 0) - 1;
     if (b.cooldown > 0) continue;
 
-    // Nearest enemy unit in reach, ties on id so both clients agree. Targets
-    // are drawn from the same start-of-round set as everything else — reading
-    // live `hp` here would put the ordering straight back in.
     let target = null;
     let bestD2 = Infinity;
     for (const u of acting) {
@@ -4724,8 +5014,6 @@ function fight(sim) {
     sound(sim, "hit");
   }
 
-  // Now clear the field. Structures first, because losing one reshapes the grid
-  // and invalidates the flow fields.
   for (const b of sim.buildings.slice()) {
     if (b.hp <= 0) destroyBuilding(sim, b);
   }
@@ -4734,9 +5022,25 @@ function fight(sim) {
   }
   const fallen = sim.units.filter((u) => u.hp <= 0);
   if (fallen.length > 0) {
-    // Anything that was chasing a unit that just died holds where it is rather
-    // than inheriting whoever happens to be given that id next.
     const dead = new Set(fallen.map((u) => u.id));
+    const livingHeroes = sim.units.filter((u) => u.isHero && u.hp > 0);
+    for (const d of fallen) {
+      sim.events.push({
+        type: "vfx_prana_death",
+        x: d.x,
+        y: d.y,
+        colour: d.spec.colour,
+        tick: sim.tick,
+      });
+      for (const h of livingHeroes) {
+        if (h.owner !== d.owner) {
+          const d2 = (h.x - d.x) ** 2 + (h.y - d.y) ** 2;
+          if (d2 <= 140 * 140) {
+            h.xp = (h.xp || 0) + (d.spec.isHero ? 100 : (d.spec.siege ? 40 : 20));
+          }
+        }
+      }
+    }
     sim.units = sim.units.filter((u) => u.hp > 0);
     for (const u of sim.units) {
       if (u.chaseId !== null && dead.has(u.chaseId)) u.chaseId = null;
@@ -4745,6 +5049,176 @@ function fight(sim) {
   }
 
   sim.projectiles = sim.projectiles.filter((p) => (p.life -= 1) > 0);
+}
+
+export function queueCast(sim, owner, unitId, abilityId, tx, ty, targetId = null) {
+  const unit = sim.units.find((u) => u.id === unitId && u.owner === owner);
+  if (!unit || unit.hp <= 0) return { ok: false, reason: "unit not found" };
+
+  const spec = ABILITIES[abilityId];
+  if (!spec) return { ok: false, reason: "unknown ability" };
+
+  if (!unit.spec.abilities?.includes(abilityId)) return { ok: false, reason: "unit cannot cast this" };
+
+  unit.cooldowns = unit.cooldowns || {};
+  if ((unit.cooldowns[abilityId] || 0) > 0) return { ok: false, reason: "ability on cooldown" };
+
+  unit.cooldowns[abilityId] = spec.cooldown;
+
+  if (abilityId === "vajra") {
+    let primaryTarget = null;
+    if (targetId) {
+      primaryTarget = sim.units.find((u) => u.id === targetId && u.owner !== owner && u.hp > 0);
+    }
+    if (!primaryTarget) {
+      const cx = tx ? tx * TILE + 8 : unit.x;
+      const cy = ty ? ty * TILE + 8 : unit.y;
+      let minD2 = Infinity;
+      for (const u of sim.units) {
+        if (u.owner !== owner && u.hp > 0) {
+          const d2 = (u.x - cx) ** 2 + (u.y - cy) ** 2;
+          if (d2 < minD2 && d2 <= spec.range ** 2) {
+            minD2 = d2;
+            primaryTarget = u;
+          }
+        }
+      }
+    }
+
+    if (primaryTarget) {
+      const chained = [primaryTarget];
+      let current = primaryTarget;
+      for (let c = 1; c < (spec.maxChains || 4); c++) {
+        let nextTarget = null;
+        let nextD2 = Infinity;
+        for (const u of sim.units) {
+          if (u.owner !== owner && u.hp > 0 && !chained.includes(u)) {
+            const d2 = (u.x - current.x) ** 2 + (u.y - current.y) ** 2;
+            if (d2 < nextD2 && d2 <= (spec.radius || 65) ** 2) {
+              nextD2 = d2;
+              nextTarget = u;
+            }
+          }
+        }
+        if (nextTarget) {
+          chained.push(nextTarget);
+          current = nextTarget;
+        } else {
+          break;
+        }
+      }
+
+      for (const target of chained) {
+        target.hp -= spec.damage;
+        if (target.hp <= 0 && unit.isHero) {
+          unit.xp = (unit.xp || 0) + 30;
+        }
+      }
+
+      sim.events.push({
+        type: "vfx_vajra",
+        fromId: unit.id,
+        fromX: unit.x,
+        fromY: unit.y,
+        targets: chained.map((t) => ({ id: t.id, x: t.x, y: t.y, hp: t.hp })),
+        tick: sim.tick,
+      });
+      say(sim, `${unit.spec.name} channels Vajra Storm!`);
+      sound(sim, "devotion", owner);
+    }
+    return { ok: true };
+  }
+
+  if (abilityId === "kavacha") {
+    let count = 0;
+    for (const u of sim.units) {
+      if (u.owner === owner && u.hp > 0) {
+        const d2 = (u.x - unit.x) ** 2 + (u.y - unit.y) ** 2;
+        if (d2 <= (spec.radius || 70) ** 2) {
+          u.shield = (u.shield || 0) + spec.shield;
+          u.shieldTicks = spec.duration;
+          count++;
+        }
+      }
+    }
+    sim.events.push({
+      type: "vfx_kavacha",
+      fromId: unit.id,
+      x: unit.x,
+      y: unit.y,
+      radius: spec.radius,
+      tick: sim.tick,
+    });
+    say(sim, `${unit.spec.name} manifests Kavacha Ward upon ${count} warriors.`);
+    sound(sim, "devotion", owner);
+    return { ok: true };
+  }
+
+  if (abilityId === "trample") {
+    unit.charge = {
+      targetX: tx * TILE + 8,
+      targetY: ty * TILE + 8,
+      ticks: spec.duration,
+      speedBoost: 2.0,
+      damage: spec.damage,
+    };
+    sim.events.push({
+      type: "vfx_trample",
+      unitId: unit.id,
+      tick: sim.tick,
+    });
+    say(sim, `${unit.spec.name} surges in a Trample Breaching Charge!`);
+    sound(sim, "order", owner);
+    return { ok: true };
+  }
+
+  if (abilityId === "agni") {
+    const targetX = tx * TILE + 8;
+    const targetY = ty * TILE + 8;
+    sim.hazards = sim.hazards || [];
+    sim.hazards.push({
+      x: targetX,
+      y: targetY,
+      radius: spec.radius,
+      ticks: spec.duration,
+      dps: spec.damagePerSec / 20.0,
+      owner,
+    });
+    sim.events.push({
+      type: "vfx_agni",
+      x: targetX,
+      y: targetY,
+      radius: spec.radius,
+      tick: sim.tick,
+    });
+    say(sim, `Flaming Agni Shila ignites the battlefield!`);
+    sound(sim, "build", owner);
+    return { ok: true };
+  }
+
+  if (abilityId === "battlecry") {
+    let count = 0;
+    for (const u of sim.units) {
+      if (u.owner === owner && u.hp > 0) {
+        const d2 = (u.x - unit.x) ** 2 + (u.y - unit.y) ** 2;
+        if (d2 <= spec.radius ** 2) {
+          u.buff = { kind: "valour", dmgMul: 1.35, speedMul: 1.25, ticks: spec.duration };
+          count++;
+        }
+      }
+    }
+    sim.events.push({
+      type: "vfx_battlecry",
+      unitId: unit.id,
+      radius: spec.radius,
+      tick: sim.tick,
+    });
+    say(sim, `${unit.spec.name} sounds the Himalayan War Horn of Valour!`);
+    sound(sim, "devotion", owner);
+    return { ok: true };
+  }
+
+  return { ok: false, reason: "unhandled ability" };
 }
 
 /**

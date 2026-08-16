@@ -13,6 +13,8 @@ export class Vfx3D {
 
     this.particles = [];
     this.damageTexts = [];
+    this.lightnings = [];
+    this.energyRings = [];
     this.shakeIntensity = 0;
     this.shakeDecay = 5.0;
 
@@ -164,13 +166,147 @@ export class Vfx3D {
       }
     }
 
-    // 3. Update Camera Shake
+    // 3. Update Lightning & Energy Beams
+    for (let i = this.lightnings.length - 1; i >= 0; i--) {
+      const bolt = this.lightnings[i];
+      bolt.life -= dt;
+      bolt.line.material.opacity = Math.max(0, bolt.life / bolt.maxLife);
+      if (bolt.light) bolt.light.intensity = Math.max(0, (bolt.life / bolt.maxLife) * 8);
+
+      if (bolt.life <= 0) {
+        this.vfxGroup.remove(bolt.line);
+        if (bolt.light) this.vfxGroup.remove(bolt.light);
+        bolt.line.geometry.dispose();
+        bolt.line.material.dispose();
+        this.lightnings.splice(i, 1);
+      }
+    }
+
+    // 4. Update Expanding Energy Rings & Shields
+    for (let i = this.energyRings.length - 1; i >= 0; i--) {
+      const ring = this.energyRings[i];
+      ring.life -= dt;
+      const progress = 1 - (ring.life / ring.maxLife);
+      const currentRadius = ring.startRadius + (ring.endRadius - ring.startRadius) * progress;
+      ring.mesh.scale.set(currentRadius, currentRadius, currentRadius);
+      ring.mesh.material.opacity = Math.max(0, (ring.life / ring.maxLife) * 0.7);
+
+      if (ring.life <= 0) {
+        this.vfxGroup.remove(ring.mesh);
+        ring.mesh.geometry.dispose();
+        ring.mesh.material.dispose();
+        this.energyRings.splice(i, 1);
+      }
+    }
+
+    // 5. Update Camera Shake
     if (this.shakeIntensity > 0.05) {
       const ox = (Math.random() - 0.5) * this.shakeIntensity;
       const oy = (Math.random() - 0.5) * this.shakeIntensity;
       this.camera.position.x += ox;
       this.camera.position.y += oy;
       this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay * dt);
+    }
+  }
+
+  /**
+   * Spawns Vajra chain lightning connecting multiple points.
+   * @param {Array<{x: number, y: number, z: number}>} points
+   */
+  spawnVajraLightning(points) {
+    if (!points || points.length < 2) return;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const segments = 6;
+      const vertices = [];
+      vertices.push(new THREE.Vector3(p1.x, p1.y + 6, p1.z));
+
+      for (let s = 1; s < segments; s++) {
+        const t = s / segments;
+        const ix = p1.x + (p2.x - p1.x) * t + (Math.random() - 0.5) * 8;
+        const iy = (p1.y + 6) + (p2.y - p1.y) * t + (Math.random() - 0.5) * 6;
+        const iz = p1.z + (p2.z - p1.z) * t + (Math.random() - 0.5) * 8;
+        vertices.push(new THREE.Vector3(ix, iy, iz));
+      }
+      vertices.push(new THREE.Vector3(p2.x, p2.y + 6, p2.z));
+
+      const geo = new THREE.BufferGeometry().setFromPoints(vertices);
+      const mat = new THREE.LineBasicMaterial({ color: 0x00f5d4, linewidth: 3, transparent: true, opacity: 1.0 });
+      const line = new THREE.Line(geo, mat);
+      this.vfxGroup.add(line);
+
+      const light = new THREE.PointLight(0x00f5d4, 6, 40);
+      light.position.set(p2.x, p2.y + 8, p2.z);
+      this.vfxGroup.add(light);
+
+      this.lightnings.push({ line, light, life: 0.35, maxLife: 0.35 });
+    }
+  }
+
+  /**
+   * Spawns Kavacha spiritual ward dome / sphere.
+   */
+  spawnKavachaWard(x, y, z, radius = 70) {
+    const geo = new THREE.RingGeometry(0.8, 1.0, 32);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x00bbf9, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, y + 1.5, z);
+    this.vfxGroup.add(mesh);
+
+    this.energyRings.push({
+      mesh,
+      startRadius: 2,
+      endRadius: radius,
+      life: 0.8,
+      maxLife: 0.8
+    });
+  }
+
+  /**
+   * Spawns Battlecry golden radiance ring shockwave.
+   */
+  spawnBattlecryAura(x, y, z, radius = 100) {
+    const geo = new THREE.RingGeometry(0.85, 1.0, 32);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, y + 1.8, z);
+    this.vfxGroup.add(mesh);
+
+    this.energyRings.push({
+      mesh,
+      startRadius: 4,
+      endRadius: radius,
+      life: 1.0,
+      maxLife: 1.0
+    });
+  }
+
+  /**
+   * Spawns Prana golden sparkle dissolve when units fall.
+   */
+  spawnPranaDissolve(x, y, z, hexColor = 0xffd166) {
+    const count = 14;
+    const geo = new THREE.SphereGeometry(0.6, 6, 6);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.9 });
+
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x + (Math.random() - 0.5) * 6, y + 2 + Math.random() * 4, z + (Math.random() - 0.5) * 6);
+      this.vfxGroup.add(mesh);
+
+      this.particles.push({
+        mesh,
+        vx: (Math.random() - 0.5) * 8,
+        vy: 12 + Math.random() * 16,
+        vz: (Math.random() - 0.5) * 8,
+        rotX: 0,
+        rotY: 0,
+        life: 1.0 + Math.random() * 0.5,
+        maxLife: 1.5,
+      });
     }
   }
 }
