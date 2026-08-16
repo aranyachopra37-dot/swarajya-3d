@@ -1,5 +1,5 @@
-// High-Fidelity 3D Entity & Architecture Renderer for Swarajya (Three.js)
-// Supports realistic terrain height alignment, physical gravity trajectories, and distinct equipment.
+// High-Fidelity 3D Entity, Unit & Architecture Renderer for Swarajya (Three.js)
+// Includes dedicated Peasant model, 3D Construction Sites with progress bars, and realistic silhouettes.
 
 import { TILE } from "../dominion/grid.js";
 import { lutTrig } from "./lut_trig.js";
@@ -50,9 +50,16 @@ export class Render3D {
       roofGold: new THREE.MeshStandardMaterial({ color: 0xd4a373, metalness: 0.7, roughness: 0.35 }),
       iron: new THREE.MeshStandardMaterial({ color: 0x2f3542, metalness: 0.85, roughness: 0.3 }),
       bronzeArmor: new THREE.MeshStandardMaterial({ color: 0xc8963e, metalness: 0.75, roughness: 0.3 }),
-      furBear: new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.95 }),
+      furBear: new THREE.MeshStandardMaterial({ color: 0x2e1f18, roughness: 0.95 }),
       fieldWheat: new THREE.MeshStandardMaterial({ color: 0xe9c46a, roughness: 0.8 }),
-      scaffolding: new THREE.MeshStandardMaterial({ color: 0xd4a373, wireframe: true }),
+      clothRobe: new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.9 }),
+      strawHat: new THREE.MeshStandardMaterial({ color: 0xe29578, roughness: 0.85 }),
+      wickerBasket: new THREE.MeshStandardMaterial({ color: 0x936639, roughness: 0.9 }),
+      scaffolding: new THREE.MeshStandardMaterial({ color: 0xb08968, roughness: 0.7 }),
+      foundationStone: new THREE.MeshStandardMaterial({ color: 0x6c757d, roughness: 0.95 }),
+      healthBg: new THREE.MeshBasicMaterial({ color: 0x1f2430 }),
+      healthFill: new THREE.MeshBasicMaterial({ color: 0x52b788 }),
+      progressFill: new THREE.MeshBasicMaterial({ color: 0xffb703 }),
       ownerMaterials: OWNER_COLORS.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.4 })),
       ownerRings: OWNER_COLORS.map(c => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })),
       selectionRing: new THREE.MeshBasicMaterial({ color: 0x7fd48f, side: THREE.DoubleSide }),
@@ -93,6 +100,15 @@ export class Render3D {
       if (selRing) {
         selRing.visible = selection.has(b.id);
       }
+
+      // Overhead HP Bar
+      const hpBar = mesh.getObjectByName("hpBarFill");
+      if (hpBar) {
+        const hpPct = Math.max(0, Math.min(1, b.hp / (b.maxHp || 1)));
+        hpBar.scale.set(hpPct, 1, 1);
+        hpBar.position.x = -(1 - hpPct) * 8;
+        hpBar.parent.visible = selection.has(b.id) || hpPct < 0.98;
+      }
     }
 
     for (const [id, mesh] of this.buildingMeshes.entries()) {
@@ -102,6 +118,8 @@ export class Render3D {
       }
     }
   }
+
+  // --- 3D REALISTIC CONSTRUCTION SITES ---------------------------------------
 
   _renderSites(sim, selection) {
     const { THREE } = this;
@@ -113,9 +131,7 @@ export class Render3D {
       let mesh = this.siteMeshes.get(s.id);
 
       if (!mesh) {
-        const size = (s.spec ? s.spec.tiles : 2) * TILE;
-        const geo = new THREE.BoxGeometry(size * 0.92, 8, size * 0.92);
-        mesh = new THREE.Mesh(geo, this.materials.scaffolding);
+        mesh = this._createSiteMesh(s);
         this.siteMeshes.set(s.id, mesh);
         this.entityGroup.add(mesh);
       }
@@ -124,7 +140,23 @@ export class Render3D {
       const sx = (s.tx + tiles / 2) * TILE;
       const sz = (s.ty + tiles / 2) * TILE;
       const elev = this.terrain ? this.terrain.getHeight(sx, sz) : 0;
-      mesh.position.set(sx, elev + 4, sz);
+      mesh.position.set(sx, elev, sz);
+
+      // Update construction progress
+      const progress = s.work !== undefined && s.spec && s.spec.work
+        ? Math.max(0.05, Math.min(1.0, s.work / s.spec.work))
+        : Math.max(0.05, Math.min(1.0, (s.hp || 10) / (s.maxHp || 100)));
+
+      const risingStructure = mesh.getObjectByName("risingStructure");
+      if (risingStructure) {
+        risingStructure.scale.y = progress;
+      }
+
+      const barFill = mesh.getObjectByName("progressBarFill");
+      if (barFill) {
+        barFill.scale.set(progress, 1, 1);
+        barFill.position.x = -(1 - progress) * 8;
+      }
     }
 
     for (const [id, mesh] of this.siteMeshes.entries()) {
@@ -133,6 +165,79 @@ export class Render3D {
         this.siteMeshes.delete(id);
       }
     }
+  }
+
+  _createSiteMesh(s) {
+    const { THREE } = this;
+    const group = new THREE.Group();
+    const tiles = s.spec ? s.spec.tiles : 2;
+    const size = tiles * TILE;
+    const half = size / 2;
+
+    // 1. Excavated Stone Foundation Trench
+    const trenchGeo = new THREE.BoxGeometry(size * 0.95, 3, size * 0.95);
+    const trench = new THREE.Mesh(trenchGeo, this.materials.foundationStone);
+    trench.position.y = 1.5;
+    trench.receiveShadow = true;
+    group.add(trench);
+
+    // Foundation perimeter masonry blocks
+    const blockGeo = new THREE.BoxGeometry(size * 0.96, 4, 3);
+    for (const [pz, rot] of [[-half * 0.9, 0], [half * 0.9, 0]]) {
+      const b = new THREE.Mesh(blockGeo, this.materials.stoneDark);
+      b.position.set(0, 2, pz);
+      group.add(b);
+    }
+
+    // 2. Wooden Scaffolding Frame & Corner Poles
+    const poleGeo = new THREE.CylinderGeometry(0.6, 0.6, 18);
+    for (const [px, pz] of [
+      [-half * 0.85, -half * 0.85],
+      [half * 0.85, -half * 0.85],
+      [-half * 0.85, half * 0.85],
+      [half * 0.85, half * 0.85]
+    ]) {
+      const pole = new THREE.Mesh(poleGeo, this.materials.scaffolding);
+      pole.position.set(px, 9, pz);
+      pole.castShadow = true;
+      group.add(pole);
+    }
+
+    // Cross beam rails
+    const railGeo = new THREE.BoxGeometry(size * 0.85, 0.8, 0.8);
+    const rail1 = new THREE.Mesh(railGeo, this.materials.scaffolding);
+    rail1.position.set(0, 10, -half * 0.85);
+    group.add(rail1);
+    const rail2 = new THREE.Mesh(railGeo, this.materials.scaffolding);
+    rail2.position.set(0, 10, half * 0.85);
+    group.add(rail2);
+
+    // 3. Rising Timber Frame (Scales Y from 0 to 1 with construction progress)
+    const structGeo = new THREE.BoxGeometry(size * 0.75, 14, size * 0.75);
+    structGeo.translate(0, 7, 0); // Origin at base
+    const structMesh = new THREE.Mesh(structGeo, this.materials.cedarTimber);
+    structMesh.name = "risingStructure";
+    structMesh.position.y = 2;
+    structMesh.scale.set(1, 0.05, 1);
+    structMesh.castShadow = true;
+    group.add(structMesh);
+
+    // 4. 3D Floating Construction Progress Bar Overhead
+    const barGroup = new THREE.Group();
+    barGroup.name = "progressBar";
+    barGroup.position.set(0, 24, 0);
+
+    const bgGeo = new THREE.BoxGeometry(16, 2.2, 0.8);
+    const bgMesh = new THREE.Mesh(bgGeo, this.materials.healthBg);
+    barGroup.add(bgMesh);
+
+    const fillGeo = new THREE.BoxGeometry(15.2, 1.6, 0.9);
+    const fillMesh = new THREE.Mesh(fillGeo, this.materials.progressFill);
+    fillMesh.name = "progressBarFill";
+    barGroup.add(fillMesh);
+
+    group.add(barGroup);
+    return group;
   }
 
   _createBuildingMesh(b) {
@@ -146,7 +251,7 @@ export class Render3D {
     const ownerMat = this.materials.ownerMaterials[b.owner] || this.materials.wood;
 
     if (bType === "manor") {
-      // Asana Pagoda Manor
+      // 3-Tier Asana Pagoda Manor
       const baseGeo = new THREE.BoxGeometry(size * 0.88, 16, size * 0.88);
       const baseMesh = new THREE.Mesh(baseGeo, this.materials.stone);
       baseMesh.position.y = 8;
@@ -294,6 +399,7 @@ export class Render3D {
       group.add(boxMesh);
     }
 
+    // Selection Ring
     const ringGeo = new THREE.RingGeometry(half * 1.05, half * 1.25, 24);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMesh = new THREE.Mesh(ringGeo, this.materials.selectionRing);
@@ -302,6 +408,20 @@ export class Render3D {
     ringMesh.visible = false;
     group.add(ringMesh);
 
+    // Overhead HP Bar
+    const hpGroup = new THREE.Group();
+    hpGroup.name = "hpBar";
+    hpGroup.position.set(0, 38, 0);
+    hpGroup.visible = false;
+
+    const hpBg = new THREE.Mesh(new THREE.BoxGeometry(16, 1.8, 0.6), this.materials.healthBg);
+    hpGroup.add(hpBg);
+
+    const hpFill = new THREE.Mesh(new THREE.BoxGeometry(15.4, 1.4, 0.7), this.materials.healthFill);
+    hpFill.name = "hpBarFill";
+    hpGroup.add(hpFill);
+
+    group.add(hpGroup);
     return group;
   }
 
@@ -337,6 +457,16 @@ export class Render3D {
       if (selRing) {
         selRing.visible = selection.has(u.id);
       }
+
+      // Peasant carrying cargo visualization
+      const cargoGold = mesh.getObjectByName("cargoGold");
+      if (cargoGold) {
+        cargoGold.visible = (u.carrying || 0) > 0 && u.carryKind === "gold";
+      }
+      const cargoWood = mesh.getObjectByName("cargoWood");
+      if (cargoWood) {
+        cargoWood.visible = (u.carrying || 0) > 0 && u.carryKind === "timber";
+      }
     }
 
     for (const [id, mesh] of this.unitMeshes.entries()) {
@@ -355,7 +485,72 @@ export class Render3D {
     const r = u.radius || 6;
     const uType = u.spec ? u.spec.id : u.type;
 
-    if (uType === "cart") {
+    if (uType === "peasant") {
+      // Himalayan Mountain Villager (Praja)
+      // 1. Chuba / Woolen Kurta Robe Body
+      const bodyGeo = new THREE.CylinderGeometry(1.9, 2.5, 8.5, 8);
+      const body = new THREE.Mesh(bodyGeo, this.materials.clothRobe);
+      body.position.y = 5.2;
+      body.castShadow = true;
+      group.add(body);
+
+      // Owner-colored waistband sash
+      const sashGeo = new THREE.CylinderGeometry(2.1, 2.1, 2.2, 8);
+      const sash = new THREE.Mesh(sashGeo, ownerMat);
+      sash.position.y = 5.2;
+      group.add(sash);
+
+      // Head
+      const headGeo = new THREE.SphereGeometry(2.0, 8, 8);
+      const head = new THREE.Mesh(headGeo, this.materials.stoneDark);
+      head.position.y = 10.5;
+      group.add(head);
+
+      // 2. Himalayan Straw / Conical Mountain Hat (Topi)
+      const hatGeo = new THREE.ConeGeometry(3.6, 2.2, 8);
+      const hat = new THREE.Mesh(hatGeo, this.materials.strawHat);
+      hat.position.y = 12.2;
+      hat.castShadow = true;
+      group.add(hat);
+
+      // 3. Wicker Basket (Khilta / Tokri) on Back
+      const basketGeo = new THREE.CylinderGeometry(2.2, 1.6, 5, 8);
+      const basket = new THREE.Mesh(basketGeo, this.materials.wickerBasket);
+      basket.position.set(-1.8, 6.5, 0);
+      basket.rotation.z = 0.2;
+      basket.castShadow = true;
+      group.add(basket);
+
+      // Gold ore nuggets in basket (visible when carrying gold)
+      const goldCargoGeo = new THREE.DodecahedronGeometry(1.4, 0);
+      const goldCargo = new THREE.Mesh(goldCargoGeo, this.materials.roofGold);
+      goldCargo.name = "cargoGold";
+      goldCargo.position.set(-1.8, 8.5, 0);
+      goldCargo.visible = false;
+      group.add(goldCargo);
+
+      // Timber logs in basket (visible when carrying timber)
+      const woodCargoGeo = new THREE.CylinderGeometry(0.6, 0.6, 4.5);
+      const woodCargo = new THREE.Mesh(woodCargoGeo, this.materials.cedarTimber);
+      woodCargo.name = "cargoWood";
+      woodCargo.position.set(-1.8, 8.5, 0);
+      woodCargo.visible = false;
+      group.add(woodCargo);
+
+      // 4. Worker Tool in Hand (Pickaxe / Axe)
+      const toolShaftGeo = new THREE.CylinderGeometry(0.25, 0.25, 8.5);
+      const toolShaft = new THREE.Mesh(toolShaftGeo, this.materials.wood);
+      toolShaft.position.set(2.4, 6.5, 0.5);
+      toolShaft.rotation.z = -0.3;
+      group.add(toolShaft);
+
+      const pickHeadGeo = new THREE.ConeGeometry(1.6, 3.8, 4);
+      pickHeadGeo.rotateZ(Math.PI / 2);
+      const pickHead = new THREE.Mesh(pickHeadGeo, this.materials.iron);
+      pickHead.position.set(2.4, 10.2, 0.5);
+      group.add(pickHead);
+
+    } else if (uType === "cart") {
       const cartBed = new THREE.BoxGeometry(11, 4, 7.5);
       const bedMesh = new THREE.Mesh(cartBed, this.materials.wood);
       bedMesh.position.y = 4.5;
@@ -436,24 +631,6 @@ export class Render3D {
       ramHead.position.set(10, 5, 0);
       group.add(ramHead);
 
-    } else if (uType === "peasant") {
-      const bodyGeo = new THREE.CylinderGeometry(2, 2.6, 9, 8);
-      const body = new THREE.Mesh(bodyGeo, ownerMat);
-      body.position.y = 5.5;
-      body.castShadow = true;
-      group.add(body);
-
-      const headGeo = new THREE.SphereGeometry(2.2, 8, 8);
-      const head = new THREE.Mesh(headGeo, this.materials.stoneDark);
-      head.position.y = 11.5;
-      group.add(head);
-
-      const toolGeo = new THREE.CylinderGeometry(0.3, 0.3, 10);
-      const tool = new THREE.Mesh(toolGeo, this.materials.wood);
-      tool.position.set(2.2, 8, 0);
-      tool.rotation.z = -0.3;
-      group.add(tool);
-
     } else if (uType === "archer") {
       const bodyGeo = new THREE.CylinderGeometry(2, 2.5, 9, 8);
       const body = new THREE.Mesh(bodyGeo, ownerMat);
@@ -473,6 +650,7 @@ export class Render3D {
       group.add(bow);
 
     } else {
+      // Spearman (Shulin)
       const bodyGeo = new THREE.CylinderGeometry(2.2, 2.8, 9.5, 8);
       const body = new THREE.Mesh(bodyGeo, ownerMat);
       body.position.y = 5.5;

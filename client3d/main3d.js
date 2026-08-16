@@ -1,5 +1,5 @@
 // Swarajya 3D Client Entrypoint — Master Edition
-// Single Player vs AI + Online 1v1 Lockstep Multiplayer + Sky3D + Contextual HUD + Fog of War
+// 20Hz Deterministic Sim + Dynamic RTS Cursors + Lore Audio + 3D Construction Sites + Sky3D
 
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import {
@@ -16,8 +16,10 @@ import { Sky3D } from "./sky3d.js";
 import { Vfx3D } from "./vfx3d.js";
 import { FogOfWar3D } from "./fog3d.js";
 import { Multiplayer3D } from "./multiplayer3d.js";
+import { CursorManager } from "./cursors3d.js";
+import { LoreAudio3D } from "./lore_audio3d.js";
 import { FORMATIONS } from "./formations.js";
-import { TILE } from "../dominion/grid.js";
+import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
 import { initAudio, playCues, setSfxVolume } from "../src/audio.js";
 import { siegeMusic, pathMusic, endMusic, setMusicVolume } from "../src/music.js";
 
@@ -88,11 +90,11 @@ class Swarajya3DApp {
     this.ghostMesh.visible = false;
     this.scene.add(this.ghostMesh);
 
-    // Initialize 3D VFX System
+    // Dynamic Systems
     this.vfx = new Vfx3D(this.scene, this.camera);
-
-    // Initialize Dynamic Sky & Weather System
     this.sky = new Sky3D(this.scene, this.dirLight, hemiLight, "snow");
+    this.cursors = new CursorManager(document.body);
+    this.loreAudio = new LoreAudio3D();
 
     window.addEventListener("resize", () => this._onResize());
   }
@@ -150,7 +152,7 @@ class Swarajya3DApp {
         if (!statusEl) return;
 
         if (status === "waiting_for_peer") {
-          statusEl.innerHTML = `<span style="color:#7fd48f">Room Created!</span> Share Code: <strong style="font-size:16px; color:#ffd166; letter-spacing:0.1em;">${data.room}</strong><br><span style="font-size:11px; color:#9ca3af;">Waiting for your friend to join...</span>`;
+          statusEl.innerHTML = `<span style="color:#7fd48f">Room Created!</span> Share Code: <strong style="font-size:16px; color:#ffd166; letter-spacing:0.1em;">${data.room}</strong><br><span style="font-size:11px; color:#9ca3af;">Waiting for your friend in Vietnam to join...</span>`;
         } else if (status === "match_ready") {
           statusEl.innerHTML = `<span style="color:#7fd48f">Player Connected! Starting Match...</span>`;
         } else if (status === "joining_room") {
@@ -176,6 +178,7 @@ class Swarajya3DApp {
   _ensureAudio() {
     if (!this.audioStarted) {
       initAudio();
+      this.loreAudio.init();
       try { siegeMusic(); } catch {}
       this.audioStarted = true;
     }
@@ -206,8 +209,9 @@ class Swarajya3DApp {
     });
 
     dom.addEventListener("mousemove", (e) => {
+      const pt = this._getGroundIntersection(e);
+
       if (this.placingBuildingType) {
-        const pt = this._getGroundIntersection(e);
         if (pt) {
           const spec = BUILDINGS[this.placingBuildingType];
           const bw = spec ? spec.tiles : 2;
@@ -220,6 +224,7 @@ class Swarajya3DApp {
           this.ghostMesh.scale.set(bw, 1, bw);
           this.ghostMaterial.color.setHex(check.ok ? 0x52b788 : 0xe63946);
           this.ghostMesh.visible = true;
+          this.cursors.setCursor("build");
         }
       } else if (this.isBoxSelecting && this.dragStart) {
         const curX = e.clientX;
@@ -236,6 +241,7 @@ class Swarajya3DApp {
         this.selectBoxEl.style.display = "block";
       } else {
         this.ghostMesh.visible = false;
+        this._updateCursorState(pt);
       }
     });
 
@@ -278,6 +284,86 @@ class Swarajya3DApp {
     });
 
     dom.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  // --- DYNAMIC CONTEXTUAL CURSOR UPDATE ---------------------------------------
+
+  _updateCursorState(pt) {
+    if (!pt) {
+      this.cursors.setCursor("default");
+      return;
+    }
+
+    const tx = Math.floor(pt.x / TILE);
+    const ty = Math.floor(pt.z / TILE);
+    const inMap = tx >= 0 && tx < this.sim.grid.w && ty >= 0 && ty < this.sim.grid.h;
+    const tile = inMap ? this.sim.grid.cells[ty * this.sim.grid.w + tx] : -1;
+
+    const selIds = Array.from(this.selection);
+    const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
+    const hasWorker = selUnits.some(u => u.spec.worker);
+    const hasMilitary = selUnits.some(u => !u.spec.worker);
+
+    // 1. Check enemy hover -> Attack cursor
+    for (const u of this.sim.units) {
+      if (u.owner !== this.localPlayer) {
+        const dx = u.x - pt.x;
+        const dz = u.y - pt.z;
+        if (dx * dx + dz * dz <= (u.radius + 16) ** 2) {
+          this.cursors.setCursor("attack");
+          return;
+        }
+      }
+    }
+    for (const b of this.sim.buildings) {
+      if (b.owner !== this.localPlayer) {
+        const bx = (b.tx + b.spec.tiles / 2) * TILE;
+        const bz = (b.ty + b.spec.tiles / 2) * TILE;
+        const half = (b.spec.tiles * TILE) / 2;
+        if (Math.abs(bx - pt.x) <= half + 12 && Math.abs(bz - pt.z) <= half + 12) {
+          this.cursors.setCursor("attack");
+          return;
+        }
+      }
+    }
+
+    // 2. Check Worker context hover -> Mine / Fell / Build / Harvest
+    if (hasWorker) {
+      if (tile === GOLD) {
+        this.cursors.setCursor("mine");
+        return;
+      }
+      if (tile === FOREST) {
+        this.cursors.setCursor("fell");
+        return;
+      }
+      // Hovering over construction site
+      const site = (this.sim.sites || []).find(s => s.owner === this.localPlayer && s.tx <= tx && tx < s.tx + s.spec.tiles && s.ty <= ty && ty < s.ty + s.spec.tiles);
+      if (site) {
+        this.cursors.setCursor("build");
+        return;
+      }
+    }
+
+    // 3. Hovering over friendly entity -> Select hand
+    for (const u of this.sim.units) {
+      if (u.owner === this.localPlayer) {
+        const dx = u.x - pt.x;
+        const dz = u.y - pt.z;
+        if (dx * dx + dz * dz <= (u.radius + 14) ** 2) {
+          this.cursors.setCursor("select");
+          return;
+        }
+      }
+    }
+
+    // 4. Units selected over walkable terrain -> Move cursor
+    if (this.selection.size > 0 && inMap && tile !== WATER) {
+      this.cursors.setCursor("move");
+      return;
+    }
+
+    this.cursors.setCursor("default");
   }
 
   _handleBoxSelect(p1, p2) {
@@ -352,7 +438,6 @@ class Swarajya3DApp {
       fowCheck.checked = this.fogOfWarEnabled;
     }
 
-    // Single Player AI Start
     if (startBtn) {
       startBtn.addEventListener("click", () => {
         this._ensureAudio();
@@ -366,7 +451,6 @@ class Swarajya3DApp {
       });
     }
 
-    // Host Online 1v1 Room
     if (hostBtn) {
       hostBtn.addEventListener("click", () => {
         this._ensureAudio();
@@ -376,7 +460,6 @@ class Swarajya3DApp {
       });
     }
 
-    // Join Online 1v1 Room
     if (joinBtn && joinCodeInput) {
       joinBtn.addEventListener("click", () => {
         this._ensureAudio();
@@ -393,13 +476,17 @@ class Swarajya3DApp {
 
     if (sfxSlider) {
       sfxSlider.addEventListener("input", (e) => {
-        setSfxVolume(parseFloat(e.target.value));
+        const v = parseFloat(e.target.value);
+        setSfxVolume(v);
+        this.loreAudio.setSfxVolume(v);
       });
     }
 
     if (musicSlider) {
       musicSlider.addEventListener("input", (e) => {
-        setMusicVolume(parseFloat(e.target.value));
+        const v = parseFloat(e.target.value);
+        setMusicVolume(v);
+        this.loreAudio.setMusicVolume(v);
       });
     }
   }
@@ -427,13 +514,21 @@ class Swarajya3DApp {
 
     const check = canBuild(this.sim, this.localPlayer, this.placingBuildingType, tx, ty);
     if (check.ok) {
-      const peasants = this.sim.units
-        .filter(u => u.owner === this.localPlayer && u.spec.worker)
+      // Find selected peasants, or all idle peasants
+      let peasants = this.sim.units
+        .filter(u => this.selection.has(u.id) && u.owner === this.localPlayer && u.spec.worker)
         .map(u => u.id);
+
+      if (peasants.length === 0) {
+        peasants = this.sim.units
+          .filter(u => u.owner === this.localPlayer && u.spec.worker)
+          .map(u => u.id);
+      }
 
       this._dispatchCommand(cmd.build(this.placingBuildingType, tx, ty, peasants));
       const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
-      this.vfx.spawnDebris(pt.x, elev, pt.z, 12, 0xd4a373);
+      this.vfx.spawnDebris(pt.x, elev, pt.z, 14, 0xd4a373);
+      this.loreAudio.playTempleBell(648);
     }
 
     this.placingBuildingType = null;
@@ -501,6 +596,7 @@ class Swarajya3DApp {
           this._dispatchCommand(cmd.attack(unitIds, u.id));
           const elev = this.terrain ? this.terrain.getHeight(u.x, u.y) : 0;
           this.vfx.spawnDebris(u.x, elev, u.y, 4, 0xef476f);
+          this.loreAudio.playWarDrum(55, 0.7);
           return;
         }
       }
@@ -515,6 +611,7 @@ class Swarajya3DApp {
           this._dispatchCommand(cmd.attack(unitIds, b.id));
           const elev = this.terrain ? this.terrain.getHeight(bx, bz) : 0;
           this.vfx.spawnDebris(bx, elev, bz, 6, 0x8b5a2b);
+          this.loreAudio.playWarDrum(50, 0.8);
           return;
         }
       }
@@ -523,6 +620,7 @@ class Swarajya3DApp {
     const targetTileX = Math.floor(pt.x / TILE);
     const targetTileY = Math.floor(pt.z / TILE);
     this._dispatchCommand(cmd.order(unitIds, targetTileX, targetTileY));
+    this.loreAudio.playWarDrum(75, 0.4);
   }
 
   _initLoop() {
@@ -541,11 +639,9 @@ class Swarajya3DApp {
         }
 
         if (this.isOnline && this.mp && this.mp.lockstep) {
-          // Online Lockstep Tick
           this.mp.lockstep.publish();
           this.mp.lockstep.tryAdvance(now);
         } else {
-          // Single Player AI Tick
           if (!this.sim.over) {
             for (let seat = 1; seat < this.sim.players.length; seat++) {
               think(this.sim, seat, this.currentAiTier);
@@ -599,6 +695,7 @@ class Swarajya3DApp {
         banner.classList.add("visible");
         const won = this.sim.winner === this.localPlayer;
         try { endMusic(won); } catch {}
+        if (won) this.loreAudio.playTempleBell(864);
         banner.querySelector("h2").textContent = won ? "VICTORY — SWARAJYA CLAIMED" : "DEFEAT — HALL DESTROYED";
         banner.querySelector("h2").style.color = won ? "#7fd48f" : "#e63946";
       }
