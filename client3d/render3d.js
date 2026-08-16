@@ -11,6 +11,8 @@ export const OWNER_COLORS = [
   0xe63946, // Player 1: Crimson Red
   0x457b9d, // Player 2: Himalayan Indigo
   0x2a9d8f, // Player 3: Jade Green
+  0xd8b45c, // Player 4: Amber Ochre
+  0xc98fb4, // Player 5: Rose Lotus
 ];
 
 export class Render3D {

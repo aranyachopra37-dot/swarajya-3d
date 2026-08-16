@@ -81,17 +81,17 @@ export class Multiplayer3D {
    * @param {string} mapId 
    * @param {boolean} fogOfWar 
    */
-  async hostRoom(mapId = "trishulPass", fogOfWar = false) {
+  async hostRoom(mapId = "fourKings", fogOfWar = false, seats = 4) {
     await this._connect();
     this.isHost = true;
     this.onStatus("creating_room", {});
 
     const seed = Math.floor(Math.random() * 900000) + 100000;
-    const meta = { mapId, fogOfWar, seed };
+    const meta = { mapId, fogOfWar, seed, seats };
 
     this.ws.send(JSON.stringify({
       type: "create",
-      seats: 2,
+      seats: seats || 4,
       meta,
     }));
   }

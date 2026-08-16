@@ -30,7 +30,7 @@ class Swarajya3DApp {
     this.container = document.getElementById("canvas-container");
     this.selection = new Set();
     this.localPlayer = 0;
-    this.currentMapId = "kailashSanctum";
+    this.currentMapId = "fourKings";
     this.currentAiTier = 1; // Durgadhyaksha
     this.fogOfWarEnabled = false;
     this.placingBuildingType = null;

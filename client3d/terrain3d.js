@@ -1,5 +1,5 @@
-// 3D Realistic Himalayan Alpine Environment & Terrain Renderer for Swarajya (Three.js)
-// High Mountain Ridges (Elevation 54), Snowy Peaks, Steep Cliff Striations, and Deep Valleys.
+// 3D Realistic Himalayan Alpine Environment & Boundless Horizon Terrain for Swarajya (Three.js)
+// Features playable terrain + Extended Outer Mountain Ranges & Snowy Horizon Skirt.
 
 import { TILE, GROUND, ROCK, WATER, FOREST, HILL, GOLD } from "../dominion/grid.js";
 
@@ -31,7 +31,7 @@ export class Terrain3D {
     const worldW = w * TILE;
     const worldH = h * TILE;
 
-    // 1. Base Terrain Mesh with Realistic Alpine Heightmap
+    // 1. Primary Playable Terrain Mesh with Realistic Alpine Heightmap
     const segmentsX = w;
     const segmentsY = h;
     const geometry = new THREE.PlaneGeometry(worldW, worldH, segmentsX, segmentsY);
@@ -75,7 +75,6 @@ export class Terrain3D {
         vertexColor = noise > 2 ? colorMeadowLight : colorMeadow;
       }
 
-      // Procedural mountain peak crags
       if (elevation > 20) {
         const crag = ((gx * 23 + gy * 47) % 11) * 0.9;
         elevation += crag;
@@ -99,8 +98,64 @@ export class Terrain3D {
     this.terrainMesh.receiveShadow = true;
     this.terrainGroup.add(this.terrainMesh);
 
-    // 2. Animated Glacial Stream Mesh
-    const waterGeo = new THREE.PlaneGeometry(worldW, worldH);
+    // 2. Extended Infinite Mountain Horizon Mesh (Surrounds the map boundary)
+    const skirtWidth = worldW * 4.0;
+    const skirtHeight = worldH * 4.0;
+    const skirtSegsX = 64;
+    const skirtSegsY = 64;
+    const skirtGeo = new THREE.PlaneGeometry(skirtWidth, skirtHeight, skirtSegsX, skirtSegsY);
+    skirtGeo.rotateX(-Math.PI / 2);
+
+    const skirtPos = skirtGeo.attributes.position;
+    const skirtCol = new THREE.BufferAttribute(new Float32Array(skirtPos.count * 3), 3);
+    skirtGeo.setAttribute("color", skirtCol);
+
+    for (let i = 0; i < skirtPos.count; i++) {
+      const vx = skirtPos.getX(i);
+      const vz = skirtPos.getZ(i);
+
+      // Distance outside the playable map bounding box
+      const dx = Math.max(0, Math.abs(vx) - worldW / 2);
+      const dz = Math.max(0, Math.abs(vz) - worldH / 2);
+      const distFromEdge = Math.sqrt(dx * dx + dz * dz);
+
+      let skirtElev = 0;
+      let c = colorMeadow;
+
+      if (distFromEdge > 10) {
+        // Build towering outer Himalayan mountain ridges that rise into the distance
+        const distRatio = Math.min(1.0, distFromEdge / (worldW * 1.2));
+        const ridgeFreq = Math.sin(vx * 0.0035) * Math.cos(vz * 0.0035);
+        const cragDetail = Math.sin(vx * 0.015 + vz * 0.015) * 12;
+
+        skirtElev = distRatio * (75 + ridgeFreq * 65) + cragDetail;
+        if (skirtElev > 50) {
+          c = colorSnowCap; // Glacial snowy mountain summits
+        } else if (skirtElev > 25) {
+          c = colorSlateRock; // Steep granite rock ridges
+        } else {
+          c = colorHill;
+        }
+      }
+
+      skirtPos.setY(i, skirtElev);
+      skirtCol.setXYZ(i, c.r, c.g, c.b);
+    }
+
+    skirtGeo.computeVertexNormals();
+    const skirtMat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.92,
+      metalness: 0.05,
+      flatShading: true,
+    });
+    const skirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
+    skirtMesh.position.set(worldW / 2, 0, worldH / 2);
+    skirtMesh.receiveShadow = true;
+    this.terrainGroup.add(skirtMesh);
+
+    // 3. Glacial Water System (Extended)
+    const waterGeo = new THREE.PlaneGeometry(skirtWidth, skirtHeight);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x1d3557,
@@ -113,7 +168,7 @@ export class Terrain3D {
     waterMesh.position.set(worldW / 2, -1.8, worldH / 2);
     this.terrainGroup.add(waterMesh);
 
-    // 3. Environmental Props (Pines, Boulders, Gold Seams, Bushes)
+    // 4. Environmental Props (Pines, Boulders, Gold Seams, Bushes)
     const treePositions = [];
     const goldPositions = [];
     const boulderPositions = [];
@@ -137,7 +192,7 @@ export class Terrain3D {
       }
     }
 
-    // 3A. Instanced Multi-Tier Deodar Pines
+    // 4A. Instanced Multi-Tier Deodar Pines
     if (treePositions.length > 0) {
       const treeGroupGeo = new THREE.ConeGeometry(5.4, 18, 5);
       treeGroupGeo.translate(0, 9, 0);
@@ -159,7 +214,7 @@ export class Terrain3D {
       this.terrainGroup.add(treeMesh);
     }
 
-    // 3B. Instanced Glowing Gold Ore Seams
+    // 4B. Instanced Glowing Gold Ore Seams
     if (goldPositions.length > 0) {
       const goldGeo = new THREE.DodecahedronGeometry(4.2, 0);
       const goldMat = new THREE.MeshStandardMaterial({
@@ -184,7 +239,7 @@ export class Terrain3D {
       this.terrainGroup.add(goldMesh);
     }
 
-    // 3C. Instanced Granite Boulders
+    // 4C. Instanced Granite Boulders
     if (boulderPositions.length > 0) {
       const boulderGeo = new THREE.DodecahedronGeometry(2.6, 0);
       const boulderMat = new THREE.MeshStandardMaterial({ color: 0x5c677d, roughness: 0.95, flatShading: true });
@@ -203,7 +258,7 @@ export class Terrain3D {
       this.terrainGroup.add(boulderMesh);
     }
 
-    // 3D. Instanced Mountain Shrub Bushes
+    // 4D. Instanced Mountain Shrub Bushes
     if (bushPositions.length > 0) {
       const bushGeo = new THREE.SphereGeometry(2.4, 5, 4);
       const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.9, flatShading: true });

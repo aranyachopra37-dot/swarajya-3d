@@ -836,6 +836,11 @@ function buildMap(grid, random) {
     return;
   }
 
+  if (grid.mapId === "fourKings") {
+    buildFourKings(grid, random, { blob, patch, region });
+    return;
+  }
+
   if (grid.mapId === "threeCrowns") {
     buildThreeCrowns(grid, random, { blob });
     return;
@@ -1694,6 +1699,75 @@ function buildKailashSanctum(grid, random, { blob, patch, region }) {
   blob(midX + 7, midY, 3, GOLD);
 }
 
+function buildFourKings(grid, random, { blob, patch, region }) {
+  const W = grid.w;
+  const H = grid.h;
+  const midX = Math.floor(W / 2);
+  const midY = Math.floor(H / 2);
+
+  // 1. Asymmetric Center: Ancient Mahashira Fortress Sanctuary & Mount Kailash Crags
+  blob(midX, midY, 14, ROCK);
+  blob(midX - 8, midY - 6, 9, ROCK);
+  blob(midX + 7, midY + 8, 9, ROCK);
+  blob(midX - 12, midY + 10, 7, HILL);
+  blob(midX + 11, midY - 10, 7, HILL);
+
+  // 2. Glacial River System (Asymmetrical meandering water course from North-East glacier down to South-West lake)
+  for (let t = 0; t < 160; t++) {
+    const rx = Math.floor(150 - t * 0.85 + Math.sin(t * 0.08) * 8);
+    const ry = Math.floor(10 + t * 0.85 + Math.cos(t * 0.06) * 7);
+    if (rx >= 0 && rx < W && ry >= 0 && ry < H) {
+      blob(rx, ry, (t > 70 && t < 90) ? 1 : 2, WATER);
+    }
+  }
+
+  // Large South-West Glacial Lake Basin
+  blob(38, 126, 12, WATER);
+  blob(46, 134, 9, WATER);
+
+  // 3. Four Asymmetric Strategic Quadrants
+  // Q1: North-West Alpine Highlands (Terraced Hill fortress with pine slopes)
+  blob(36, 20, 7, HILL);
+  blob(18, 42, 6, FOREST);
+  blob(42, 38, 6, FOREST);
+  blob(28, 16, 3, GOLD);
+  blob(14, 32, 2, GOLD);
+
+  // Q2: North-East Craggy Glacial Ridge (Surrounded by mountain rock walls and switchbacks)
+  blob(124, 18, 8, ROCK);
+  blob(144, 42, 6, FOREST);
+  blob(118, 38, 5, FOREST);
+  blob(140, 16, 3, GOLD);
+  blob(128, 34, 2, GOLD);
+
+  // Q3: South-West Lake Basin & Meadow (Fertile river delta with rich timber)
+  blob(16, 118, 6, HILL);
+  blob(38, 148, 8, FOREST);
+  blob(16, 148, 6, FOREST);
+  blob(30, 142, 3, GOLD);
+  blob(14, 124, 2, GOLD);
+
+  // Q4: South-East High Canyon Gorge (Arid crags and deep rock corridors)
+  blob(144, 118, 8, ROCK);
+  blob(120, 146, 6, FOREST);
+  blob(146, 146, 5, FOREST);
+  blob(124, 126, 3, GOLD);
+  blob(142, 140, 2, GOLD);
+
+  // 4. Contested High-Yield Gold Clusters in passes and around central summit
+  blob(midX - 16, midY - 14, 4, GOLD);
+  blob(midX + 15, midY + 14, 4, GOLD);
+  blob(midX - 14, midY + 16, 4, GOLD);
+  blob(midX + 16, midY - 14, 4, GOLD);
+  blob(midX, midY - 18, 3, GOLD);
+  blob(midX, midY + 18, 3, GOLD);
+
+  // Clear 7x7 flat clearings around the 4 player starting manors
+  for (const [sx, sy] of [[20, 22], [136, 24], [22, 136], [134, 134]]) {
+    blob(sx + 1, sy + 1, 7, GROUND);
+  }
+}
+
 // --- Setup -------------------------------------------------------------------
 
 /**
@@ -1944,6 +2018,19 @@ export const MAPS = {
     blurb:
       "The Sacred Axis Mundi Mount Kailash standing between Lake Manasarovar and Lake Rakshastal. " +
       "Towering glacial pinnacles, deep mountain passes, and contested high-altitude gold seams.",
+  },
+  fourKings: {
+    id: "fourKings",
+    seats: 4,
+    symmetry: "none",
+    name: "Valley of the Four Kings (चतुर्नृप उपत्यका)",
+    w: 160, h: 160,
+    starts: [[20, 22], [136, 24], [22, 136], [134, 134]],
+    weather: "fair",
+    biome: "alpine_himalaya",
+    blurb:
+      "A vast, asymmetric Himalayan expanse for 4 contending kings (AI or human). " +
+      "Towering jagged summits, meandering glacial rivers, deep forest gorges, and a contested central fortress sanctuary.",
   },
 };
 export const MAP_IDS = Object.keys(MAPS);
