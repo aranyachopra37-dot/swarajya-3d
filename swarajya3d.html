@@ -202,24 +202,26 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: radial-gradient(circle at center, rgba(16, 20, 32, 0.94) 0%, rgba(6, 8, 14, 0.98) 100%);
-      backdrop-filter: blur(18px);
+      background: radial-gradient(circle at center, rgba(8, 10, 18, 0.4) 0%, rgba(6, 8, 14, 0.85) 100%), url('assets/menu_bg.jpg') center/cover no-repeat;
+      backdrop-filter: blur(2px);
       z-index: 1000;
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: hidden;
     }
     .menu-card {
-      background: rgba(18, 22, 34, 0.98);
-      border: 1px solid #e09f3e;
+      background: rgba(14, 18, 30, 0.90);
+      border: 1.5px solid #e09f3e;
       border-radius: 14px;
       padding: 32px 42px;
-      width: 600px;
-      max-height: 90vh;
+      width: 620px;
+      max-height: 92vh;
       overflow-y: auto;
-      box-shadow: 0 16px 64px rgba(0, 0, 0, 0.95), 0 0 30px rgba(224, 159, 62, 0.15);
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.95), 0 0 40px rgba(224, 159, 62, 0.25);
       text-align: center;
       position: relative;
+      backdrop-filter: blur(16px);
     }
     .menu-card::before {
       content: "";
