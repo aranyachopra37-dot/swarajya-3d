@@ -1,5 +1,5 @@
 // Swarajya 3D Client Entrypoint — Master Edition
-// 20Hz Deterministic Sim + Dynamic RTS Cursors + Lore Audio + 3D Construction Sites + Sky3D
+// 20Hz Deterministic Sim + Minimap + Alignment Wheel + Dynamic Cursors + Lore Audio + 3D Construction Sites + Sky3D
 
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import {
@@ -18,6 +18,8 @@ import { FogOfWar3D } from "./fog3d.js";
 import { Multiplayer3D } from "./multiplayer3d.js";
 import { CursorManager } from "./cursors3d.js";
 import { LoreAudio3D } from "./lore_audio3d.js";
+import { Minimap3D } from "./minimap3d.js";
+import { Wheel3D } from "./wheel3d.js";
 import { FORMATIONS } from "./formations.js";
 import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
 import { initAudio, playCues, setSfxVolume } from "../src/audio.js";
@@ -46,6 +48,17 @@ class Swarajya3DApp {
     this._initInput();
     this._initMultiplayer();
     this._initMenuUI();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has("autostart")) {
+      this.matchStarted = true;
+      const menuModal = document.getElementById("main-menu-modal");
+      if (menuModal) menuModal.style.display = "none";
+      setTimeout(() => {
+        this._selectNextIdlePeasant();
+      }, 500);
+    }
+
     this._initLoop();
   }
 
@@ -95,6 +108,7 @@ class Swarajya3DApp {
     this.sky = new Sky3D(this.scene, this.dirLight, hemiLight, "snow");
     this.cursors = new CursorManager(document.body);
     this.loreAudio = new LoreAudio3D();
+    this.wheel = new Wheel3D(document.body);
 
     window.addEventListener("resize", () => this._onResize());
   }
@@ -120,6 +134,15 @@ class Swarajya3DApp {
 
     this.renderer3D = new Render3D(this.scene, THREE, this.terrain);
     this.rtsCamera = new RtsCamera3D(this.camera, this.renderer.domElement, { width: worldW, height: worldH });
+
+    // Cinematic default camera pitch (42 degrees)
+    this.rtsCamera.targetPitch = 42 * (Math.PI / 180);
+    this.rtsCamera.targetDistance = 360;
+
+    if (!this.minimap) {
+      this.minimap = new Minimap3D(document.body, this.rtsCamera, this.camera);
+    }
+    this.minimap.initTerrain(this.sim);
 
     if (this.sky) {
       this.sky.setWeather(map.weather || (mapId === "trishulPass" ? "snow" : "clear"));
@@ -247,14 +270,14 @@ class Swarajya3DApp {
 
     dom.addEventListener("mousedown", (e) => {
       this._ensureAudio();
-      if (e.button === 0) { // Left Click
+      if (e.button === 0) {
         if (this.placingBuildingType) {
           this._confirmBuildingPlacement(e);
         } else {
           this.dragStart = { x: e.clientX, y: e.clientY };
           this.isBoxSelecting = true;
         }
-      } else if (e.button === 2) { // Right Click
+      } else if (e.button === 2) {
         if (this.placingBuildingType) {
           this.placingBuildingType = null;
           this.ghostMesh.visible = false;
@@ -286,8 +309,6 @@ class Swarajya3DApp {
     dom.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
-  // --- DYNAMIC CONTEXTUAL CURSOR UPDATE ---------------------------------------
-
   _updateCursorState(pt) {
     if (!pt) {
       this.cursors.setCursor("default");
@@ -302,9 +323,7 @@ class Swarajya3DApp {
     const selIds = Array.from(this.selection);
     const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
     const hasWorker = selUnits.some(u => u.spec.worker);
-    const hasMilitary = selUnits.some(u => !u.spec.worker);
 
-    // 1. Check enemy hover -> Attack cursor
     for (const u of this.sim.units) {
       if (u.owner !== this.localPlayer) {
         const dx = u.x - pt.x;
@@ -327,7 +346,6 @@ class Swarajya3DApp {
       }
     }
 
-    // 2. Check Worker context hover -> Mine / Fell / Build / Harvest
     if (hasWorker) {
       if (tile === GOLD) {
         this.cursors.setCursor("mine");
@@ -337,7 +355,6 @@ class Swarajya3DApp {
         this.cursors.setCursor("fell");
         return;
       }
-      // Hovering over construction site
       const site = (this.sim.sites || []).find(s => s.owner === this.localPlayer && s.tx <= tx && tx < s.tx + s.spec.tiles && s.ty <= ty && ty < s.ty + s.spec.tiles);
       if (site) {
         this.cursors.setCursor("build");
@@ -345,7 +362,6 @@ class Swarajya3DApp {
       }
     }
 
-    // 3. Hovering over friendly entity -> Select hand
     for (const u of this.sim.units) {
       if (u.owner === this.localPlayer) {
         const dx = u.x - pt.x;
@@ -357,7 +373,6 @@ class Swarajya3DApp {
       }
     }
 
-    // 4. Units selected over walkable terrain -> Move cursor
     if (this.selection.size > 0 && inMap && tile !== WATER) {
       this.cursors.setCursor("move");
       return;
@@ -514,7 +529,6 @@ class Swarajya3DApp {
 
     const check = canBuild(this.sim, this.localPlayer, this.placingBuildingType, tx, ty);
     if (check.ok) {
-      // Find selected peasants, or all idle peasants
       let peasants = this.sim.units
         .filter(u => this.selection.has(u.id) && u.owner === this.localPlayer && u.spec.worker)
         .map(u => u.id);
@@ -671,10 +685,17 @@ class Swarajya3DApp {
         this.sky.update(dt, this.rtsCamera.target);
       }
       this.vfx.update(dt);
-      this.renderer3D.render(this.sim, alpha, this.selection);
+      this.renderer3D.render(this.sim, alpha, this.selection, dt);
 
       if (this.fog) {
         this.fog.update(this.sim, this.localPlayer, this.renderer3D.unitMeshes, this.renderer3D.buildingMeshes);
+      }
+
+      if (this.minimap) {
+        this.minimap.update(this.localPlayer);
+      }
+      if (this.wheel) {
+        this.wheel.update(this.sim.players[this.localPlayer]);
       }
 
       this.renderer.render(this.scene, this.camera);

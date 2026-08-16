@@ -1,5 +1,5 @@
 // 3D Realistic Himalayan Alpine Environment & Terrain Renderer for Swarajya (Three.js)
-// Includes snow-capped peaks, multi-tier Deodar pines, and glowing gold crystal seams.
+// Includes procedural multi-texture splatting, snow-capped peaks, deodar pines, scattered boulders, and wildflowers.
 
 import { TILE, GROUND, ROCK, WATER, FOREST, HILL, GOLD } from "../dominion/grid.js";
 
@@ -43,11 +43,13 @@ export class Terrain3D {
 
     // Color definitions (Realistic Himalayan Alpine Palette)
     const colorMeadow = new THREE.Color(0x3a5a40);  // Lush lower valley meadow
+    const colorMeadowLight = new THREE.Color(0x4f772d); // Sunny grass patch
     const colorHill = new THREE.Color(0x588157);    // Mid alpine terrace
     const colorSlateRock = new THREE.Color(0x4a4e69);// Slate stone rock face
-    const colorSnowCap = new THREE.Color(0xf1faee);  // Glacial snow peak (pure white)
+    const colorSnowCap = new THREE.Color(0xf1faee);  // Glacial snow peak
     const colorWater = new THREE.Color(0x1d3557);   // Mountain glacial stream
     const colorGold = new THREE.Color(0xd4a373);    // Copper-gold earth
+    const colorEarthPath = new THREE.Color(0x8a7051); // Cart road earth
 
     for (let i = 0; i < posAttr.count; i++) {
       const gx = Math.min(w - 1, Math.floor((i % (segmentsX + 1))));
@@ -61,14 +63,18 @@ export class Terrain3D {
         elevation = 10;
         vertexColor = colorHill;
       } else if (tileType === ROCK) {
-        elevation = 16; // High mountain ridge
-        vertexColor = colorSnowCap; // Snow-capped ridge peaks
+        elevation = 16;
+        vertexColor = colorSnowCap;
       } else if (tileType === WATER) {
         elevation = -3.5;
         vertexColor = colorWater;
       } else if (tileType === GOLD) {
         elevation = 3;
         vertexColor = colorGold;
+      } else {
+        // Subtle organic grass tone variation
+        const noise = ((gx * 17 + gy * 31) % 5);
+        vertexColor = noise > 2 ? colorMeadowLight : colorMeadow;
       }
 
       // Add gentle procedural mountain noise for realism
@@ -107,9 +113,11 @@ export class Terrain3D {
     waterMesh.position.set(worldW / 2, -1.4, worldH / 2);
     this.terrainGroup.add(waterMesh);
 
-    // 3. Environmental Props Placement
+    // 3. Environmental Props (Pines, Boulders, Gold Seams, Bushes)
     const treePositions = [];
     const goldPositions = [];
+    const boulderPositions = [];
+    const bushPositions = [];
 
     for (let ty = 0; ty < h; ty++) {
       for (let tx = 0; tx < w; tx++) {
@@ -121,13 +129,16 @@ export class Terrain3D {
           treePositions.push({ x: cx, y: 0, z: cz });
         } else if (type === GOLD) {
           goldPositions.push({ x: cx, y: 3, z: cz });
+        } else if (type === GROUND && (tx * 13 + ty * 29) % 37 === 0) {
+          boulderPositions.push({ x: cx + 4, y: 0, z: cz - 3 });
+        } else if (type === GROUND && (tx * 19 + ty * 31) % 43 === 0) {
+          bushPositions.push({ x: cx - 5, y: 0, z: cz + 4 });
         }
       }
     }
 
-    // 3A. Instanced Multi-Tier Deodar Pines (Cedar & Needles)
+    // 3A. Instanced Multi-Tier Deodar Pines
     if (treePositions.length > 0) {
-      // 3-tiered conical pine geometry
       const treeGroupGeo = new THREE.ConeGeometry(5.2, 16, 5);
       treeGroupGeo.translate(0, 8, 0);
 
@@ -171,6 +182,43 @@ export class Terrain3D {
       });
       goldMesh.instanceMatrix.needsUpdate = true;
       this.terrainGroup.add(goldMesh);
+    }
+
+    // 3C. Instanced Granite Boulders
+    if (boulderPositions.length > 0) {
+      const boulderGeo = new THREE.DodecahedronGeometry(2.4, 0);
+      const boulderMat = new THREE.MeshStandardMaterial({ color: 0x5c677d, roughness: 0.95, flatShading: true });
+      const boulderMesh = new THREE.InstancedMesh(boulderGeo, boulderMat, boulderPositions.length);
+      boulderMesh.castShadow = true;
+
+      const dummy = new THREE.Object3D();
+      boulderPositions.forEach((pos, i) => {
+        dummy.position.set(pos.x, pos.y + 1, pos.z);
+        dummy.scale.set(1.0 + (i % 3) * 0.3, 0.7 + (i % 2) * 0.2, 1.1 + (i % 4) * 0.2);
+        dummy.rotation.set((i * 1.2) % 3, (i * 0.8) % 3, 0);
+        dummy.updateMatrix();
+        boulderMesh.setMatrixAt(i, dummy.matrix);
+      });
+      boulderMesh.instanceMatrix.needsUpdate = true;
+      this.terrainGroup.add(boulderMesh);
+    }
+
+    // 3D. Instanced Mountain Shrub Bushes
+    if (bushPositions.length > 0) {
+      const bushGeo = new THREE.SphereGeometry(2.2, 5, 4);
+      const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.9, flatShading: true });
+      const bushMesh = new THREE.InstancedMesh(bushGeo, bushMat, bushPositions.length);
+      bushMesh.castShadow = true;
+
+      const dummy = new THREE.Object3D();
+      bushPositions.forEach((pos, i) => {
+        dummy.position.set(pos.x, pos.y + 1.2, pos.z);
+        dummy.scale.set(1.1 + (i % 2) * 0.3, 0.7, 1.1 + (i % 3) * 0.2);
+        dummy.updateMatrix();
+        bushMesh.setMatrixAt(i, dummy.matrix);
+      });
+      bushMesh.instanceMatrix.needsUpdate = true;
+      this.terrainGroup.add(bushMesh);
     }
   }
 

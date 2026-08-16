@@ -1,5 +1,5 @@
 // High-Fidelity 3D Entity, Unit & Architecture Renderer for Swarajya (Three.js)
-// Includes dedicated Peasant model, 3D Construction Sites with progress bars, and realistic silhouettes.
+// Includes procedural walk/mine/attack animations, multi-row barley farms, and detailed unit silhouettes.
 
 import { TILE } from "../dominion/grid.js";
 import { lutTrig } from "./lut_trig.js";
@@ -31,6 +31,7 @@ export class Render3D {
     this.entityGroup = new THREE.Group();
     this.scene.add(this.entityGroup);
 
+    this.animTime = 0;
     this._initSharedMaterials();
   }
 
@@ -51,7 +52,8 @@ export class Render3D {
       iron: new THREE.MeshStandardMaterial({ color: 0x2f3542, metalness: 0.85, roughness: 0.3 }),
       bronzeArmor: new THREE.MeshStandardMaterial({ color: 0xc8963e, metalness: 0.75, roughness: 0.3 }),
       furBear: new THREE.MeshStandardMaterial({ color: 0x2e1f18, roughness: 0.95 }),
-      fieldWheat: new THREE.MeshStandardMaterial({ color: 0xe9c46a, roughness: 0.8 }),
+      soilTilled: new THREE.MeshStandardMaterial({ color: 0x4a3728, roughness: 0.95 }),
+      fieldWheat: new THREE.MeshStandardMaterial({ color: 0xe9c46a, roughness: 0.7 }),
       clothRobe: new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.9 }),
       strawHat: new THREE.MeshStandardMaterial({ color: 0xe29578, roughness: 0.85 }),
       wickerBasket: new THREE.MeshStandardMaterial({ color: 0x936639, roughness: 0.9 }),
@@ -68,7 +70,8 @@ export class Render3D {
     };
   }
 
-  render(sim, alpha, selection = new Set()) {
+  render(sim, alpha, selection = new Set(), dt = 0.016) {
+    this.animTime += dt;
     this._renderBuildings(sim, selection);
     this._renderSites(sim, selection);
     this._renderUnits(sim, alpha, selection);
@@ -101,7 +104,6 @@ export class Render3D {
         selRing.visible = selection.has(b.id);
       }
 
-      // Overhead HP Bar
       const hpBar = mesh.getObjectByName("hpBarFill");
       if (hpBar) {
         const hpPct = Math.max(0, Math.min(1, b.hp / (b.maxHp || 1)));
@@ -142,7 +144,6 @@ export class Render3D {
       const elev = this.terrain ? this.terrain.getHeight(sx, sz) : 0;
       mesh.position.set(sx, elev, sz);
 
-      // Update construction progress
       const progress = s.work !== undefined && s.spec && s.spec.work
         ? Math.max(0.05, Math.min(1.0, s.work / s.spec.work))
         : Math.max(0.05, Math.min(1.0, (s.hp || 10) / (s.maxHp || 100)));
@@ -174,22 +175,12 @@ export class Render3D {
     const size = tiles * TILE;
     const half = size / 2;
 
-    // 1. Excavated Stone Foundation Trench
     const trenchGeo = new THREE.BoxGeometry(size * 0.95, 3, size * 0.95);
     const trench = new THREE.Mesh(trenchGeo, this.materials.foundationStone);
     trench.position.y = 1.5;
     trench.receiveShadow = true;
     group.add(trench);
 
-    // Foundation perimeter masonry blocks
-    const blockGeo = new THREE.BoxGeometry(size * 0.96, 4, 3);
-    for (const [pz, rot] of [[-half * 0.9, 0], [half * 0.9, 0]]) {
-      const b = new THREE.Mesh(blockGeo, this.materials.stoneDark);
-      b.position.set(0, 2, pz);
-      group.add(b);
-    }
-
-    // 2. Wooden Scaffolding Frame & Corner Poles
     const poleGeo = new THREE.CylinderGeometry(0.6, 0.6, 18);
     for (const [px, pz] of [
       [-half * 0.85, -half * 0.85],
@@ -203,18 +194,8 @@ export class Render3D {
       group.add(pole);
     }
 
-    // Cross beam rails
-    const railGeo = new THREE.BoxGeometry(size * 0.85, 0.8, 0.8);
-    const rail1 = new THREE.Mesh(railGeo, this.materials.scaffolding);
-    rail1.position.set(0, 10, -half * 0.85);
-    group.add(rail1);
-    const rail2 = new THREE.Mesh(railGeo, this.materials.scaffolding);
-    rail2.position.set(0, 10, half * 0.85);
-    group.add(rail2);
-
-    // 3. Rising Timber Frame (Scales Y from 0 to 1 with construction progress)
     const structGeo = new THREE.BoxGeometry(size * 0.75, 14, size * 0.75);
-    structGeo.translate(0, 7, 0); // Origin at base
+    structGeo.translate(0, 7, 0);
     const structMesh = new THREE.Mesh(structGeo, this.materials.cedarTimber);
     structMesh.name = "risingStructure";
     structMesh.position.y = 2;
@@ -222,7 +203,6 @@ export class Render3D {
     structMesh.castShadow = true;
     group.add(structMesh);
 
-    // 4. 3D Floating Construction Progress Bar Overhead
     const barGroup = new THREE.Group();
     barGroup.name = "progressBar";
     barGroup.position.set(0, 24, 0);
@@ -251,7 +231,6 @@ export class Render3D {
     const ownerMat = this.materials.ownerMaterials[b.owner] || this.materials.wood;
 
     if (bType === "manor") {
-      // 3-Tier Asana Pagoda Manor
       const baseGeo = new THREE.BoxGeometry(size * 0.88, 16, size * 0.88);
       const baseMesh = new THREE.Mesh(baseGeo, this.materials.stone);
       baseMesh.position.y = 8;
@@ -330,15 +309,29 @@ export class Render3D {
       group.add(roofMesh);
 
     } else if (bType === "farm") {
-      const wallGeo = new THREE.BoxGeometry(size * 0.92, 3, size * 0.92);
-      const wallMesh = new THREE.Mesh(wallGeo, this.materials.stone);
-      wallMesh.position.y = 1.5;
-      group.add(wallMesh);
+      // Realistic Multi-Row Tilled Barley Furrows
+      const soilBaseGeo = new THREE.BoxGeometry(size * 0.94, 2, size * 0.94);
+      const soilBase = new THREE.Mesh(soilBaseGeo, this.materials.soilTilled);
+      soilBase.position.y = 1;
+      soilBase.receiveShadow = true;
+      group.add(soilBase);
 
-      const fieldGeo = new THREE.BoxGeometry(size * 0.84, 2, size * 0.84);
-      const fieldMesh = new THREE.Mesh(fieldGeo, this.materials.fieldWheat);
-      fieldMesh.position.y = 3;
-      group.add(fieldMesh);
+      // 5 Parallel Barley Furrow Rows
+      const rowCount = 5;
+      for (let r = 0; r < rowCount; r++) {
+        const rowOffset = -half * 0.7 + (r * (size * 0.7 / (rowCount - 1)));
+        const furrowGeo = new THREE.BoxGeometry(size * 0.82, 3.5, 3.5);
+        const furrow = new THREE.Mesh(furrowGeo, this.materials.fieldWheat);
+        furrow.position.set(0, 3.2, rowOffset);
+        furrow.castShadow = true;
+        group.add(furrow);
+      }
+
+      // Small farmer's tool shelter
+      const shedGeo = new THREE.BoxGeometry(7, 6, 7);
+      const shed = new THREE.Mesh(shedGeo, this.materials.woodDark);
+      shed.position.set(half * 0.65, 4, half * 0.65);
+      group.add(shed);
 
     } else if (bType === "tower") {
       const towerGeo = new THREE.CylinderGeometry(4.5, 6.5, 32, 8);
@@ -399,7 +392,6 @@ export class Render3D {
       group.add(boxMesh);
     }
 
-    // Selection Ring
     const ringGeo = new THREE.RingGeometry(half * 1.05, half * 1.25, 24);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMesh = new THREE.Mesh(ringGeo, this.materials.selectionRing);
@@ -408,7 +400,6 @@ export class Render3D {
     ringMesh.visible = false;
     group.add(ringMesh);
 
-    // Overhead HP Bar
     const hpGroup = new THREE.Group();
     hpGroup.name = "hpBar";
     hpGroup.position.set(0, 38, 0);
@@ -429,6 +420,7 @@ export class Render3D {
 
   _renderUnits(sim, alpha, selection) {
     const activeIds = new Set();
+    const t = this.animTime;
 
     for (const u of sim.units) {
       activeIds.add(u.id);
@@ -445,12 +437,39 @@ export class Render3D {
       const curX = prevX + (u.x - prevX) * alpha;
       const curZ = prevY + (u.y - prevY) * alpha;
 
+      const isMoving = Math.abs(u.x - prevX) > 0.05 || Math.abs(u.y - prevY) > 0.05;
       const elev = this.terrain ? this.terrain.getHeight(curX, curZ) : 0;
-      mesh.position.set(curX, elev, curZ);
+
+      // Procedural Walk Animation (Stride Bobbing & Sway)
+      let animY = 0;
+      let animSway = 0;
+      if (isMoving) {
+        animY = Math.abs(Math.sin(t * 11 + u.id)) * 1.2;
+        animSway = Math.sin(t * 11 + u.id) * 0.06;
+      }
+
+      mesh.position.set(curX, elev + animY, curZ);
+      mesh.rotation.z = animSway;
 
       if (u.heading !== undefined) {
         const [cosH, sinH] = lutTrig(u.heading);
         mesh.rotation.y = Math.atan2(sinH, cosH);
+      }
+
+      // Procedural Working / Mining / Felling Tool Animation
+      const toolMesh = mesh.getObjectByName("workerTool");
+      if (toolMesh) {
+        if (u.job && (u.job.kind === "mine" || u.job.kind === "build" || u.job.kind === "fell")) {
+          toolMesh.rotation.x = Math.sin(t * 12 + u.id) * 0.85;
+        } else {
+          toolMesh.rotation.x = 0;
+        }
+      }
+
+      // Procedural Combat Weapon Swing
+      const weaponMesh = mesh.getObjectByName("unitWeapon");
+      if (weaponMesh && u.targetId != null) {
+        weaponMesh.position.z = Math.sin(t * 14 + u.id) * 3.5;
       }
 
       const selRing = mesh.getObjectByName("selectionRing");
@@ -458,7 +477,6 @@ export class Render3D {
         selRing.visible = selection.has(u.id);
       }
 
-      // Peasant carrying cargo visualization
       const cargoGold = mesh.getObjectByName("cargoGold");
       if (cargoGold) {
         cargoGold.visible = (u.carrying || 0) > 0 && u.carryKind === "gold";
@@ -486,8 +504,7 @@ export class Render3D {
     const uType = u.spec ? u.spec.id : u.type;
 
     if (uType === "peasant") {
-      // Himalayan Mountain Villager (Praja)
-      // 1. Chuba / Woolen Kurta Robe Body
+      // 1. Chuba / Kurta Robe Body
       const bodyGeo = new THREE.CylinderGeometry(1.9, 2.5, 8.5, 8);
       const body = new THREE.Mesh(bodyGeo, this.materials.clothRobe);
       body.position.y = 5.2;
@@ -513,7 +530,7 @@ export class Render3D {
       hat.castShadow = true;
       group.add(hat);
 
-      // 3. Wicker Basket (Khilta / Tokri) on Back
+      // 3. Wicker Basket (Khilta) on Back
       const basketGeo = new THREE.CylinderGeometry(2.2, 1.6, 5, 8);
       const basket = new THREE.Mesh(basketGeo, this.materials.wickerBasket);
       basket.position.set(-1.8, 6.5, 0);
@@ -521,7 +538,6 @@ export class Render3D {
       basket.castShadow = true;
       group.add(basket);
 
-      // Gold ore nuggets in basket (visible when carrying gold)
       const goldCargoGeo = new THREE.DodecahedronGeometry(1.4, 0);
       const goldCargo = new THREE.Mesh(goldCargoGeo, this.materials.roofGold);
       goldCargo.name = "cargoGold";
@@ -529,7 +545,6 @@ export class Render3D {
       goldCargo.visible = false;
       group.add(goldCargo);
 
-      // Timber logs in basket (visible when carrying timber)
       const woodCargoGeo = new THREE.CylinderGeometry(0.6, 0.6, 4.5);
       const woodCargo = new THREE.Mesh(woodCargoGeo, this.materials.cedarTimber);
       woodCargo.name = "cargoWood";
@@ -537,18 +552,23 @@ export class Render3D {
       woodCargo.visible = false;
       group.add(woodCargo);
 
-      // 4. Worker Tool in Hand (Pickaxe / Axe)
+      // 4. Animated Worker Tool
+      const toolGroup = new THREE.Group();
+      toolGroup.name = "workerTool";
+      toolGroup.position.set(2.2, 7.5, 0);
+
       const toolShaftGeo = new THREE.CylinderGeometry(0.25, 0.25, 8.5);
       const toolShaft = new THREE.Mesh(toolShaftGeo, this.materials.wood);
-      toolShaft.position.set(2.4, 6.5, 0.5);
-      toolShaft.rotation.z = -0.3;
-      group.add(toolShaft);
+      toolShaft.position.y = 1.5;
+      toolGroup.add(toolShaft);
 
       const pickHeadGeo = new THREE.ConeGeometry(1.6, 3.8, 4);
       pickHeadGeo.rotateZ(Math.PI / 2);
       const pickHead = new THREE.Mesh(pickHeadGeo, this.materials.iron);
-      pickHead.position.set(2.4, 10.2, 0.5);
-      group.add(pickHead);
+      pickHead.position.y = 4.8;
+      toolGroup.add(pickHead);
+
+      group.add(toolGroup);
 
     } else if (uType === "cart") {
       const cartBed = new THREE.BoxGeometry(11, 4, 7.5);
@@ -583,10 +603,13 @@ export class Render3D {
       shield.position.set(-4, 7.5, 1);
       group.add(shield);
 
+      const weaponGroup = new THREE.Group();
+      weaponGroup.name = "unitWeapon";
       const tridentGeo = new THREE.CylinderGeometry(0.45, 0.45, 20);
       const trident = new THREE.Mesh(tridentGeo, this.materials.iron);
       trident.position.set(4, 9.5, 0);
-      group.add(trident);
+      weaponGroup.add(trident);
+      group.add(weaponGroup);
 
     } else if (uType === "behemoth") {
       const bearGeo = new THREE.BoxGeometry(16, 9, 10);
@@ -650,7 +673,7 @@ export class Render3D {
       group.add(bow);
 
     } else {
-      // Spearman (Shulin)
+      // Spearman
       const bodyGeo = new THREE.CylinderGeometry(2.2, 2.8, 9.5, 8);
       const body = new THREE.Mesh(bodyGeo, ownerMat);
       body.position.y = 5.5;
@@ -662,11 +685,14 @@ export class Render3D {
       helm.position.y = 12.5;
       group.add(helm);
 
+      const weaponGroup = new THREE.Group();
+      weaponGroup.name = "unitWeapon";
       const spearGeo = new THREE.CylinderGeometry(0.3, 0.3, 18);
       const spear = new THREE.Mesh(spearGeo, this.materials.iron);
       spear.position.set(2.6, 9.5, 0.5);
       spear.rotation.z = -0.15;
-      group.add(spear);
+      weaponGroup.add(spear);
+      group.add(weaponGroup);
     }
 
     const ownerRingGeo = new THREE.RingGeometry(r * 0.8, r * 1.15, 16);
