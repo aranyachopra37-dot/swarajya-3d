@@ -176,6 +176,7 @@ class Swarajya3DApp {
         this._dispatchCommand(cmd.chat(text, target));
       });
     }
+    this.chat.setSim(this.sim, this.localPlayer);
 
     if (!this.diplomacy) {
       this.diplomacy = new Diplomacy3D(
@@ -749,9 +750,17 @@ class Swarajya3DApp {
               const author = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
               const col = this.sim.players[ev.from]?.colour || "#f4a261";
               if (this.chat) {
-                this.chat.addMessage({ author, text: ev.text, type: "normal", color: col });
+                const chan = ev.target === -2 ? "allies" : (ev.target >= 0 ? "whisper" : "all");
+                this.chat.addMessage({
+                  author,
+                  text: ev.text,
+                  type: ev.target >= 0 ? "whisper" : (ev.target === -2 ? "allies" : "normal"),
+                  color: col,
+                  channel: chan,
+                  target: ev.target,
+                });
                 if (!this.isOnline && ev.from === this.localPlayer) {
-                  this.chat.handleAiResponse(this.sim, ev.text);
+                  this.chat.handleAiResponse(this.sim, ev.text, ev.target);
                 }
               }
             } else if (ev.type === "diplomacy_change") {
