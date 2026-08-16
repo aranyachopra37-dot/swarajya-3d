@@ -1066,4 +1066,10 @@ class Swarajya3DApp {
 
 window.addEventListener("DOMContentLoaded", () => {
   window.app3D = new Swarajya3DApp();
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("autostart") === "1") {
+    setTimeout(() => {
+      if (window.app3D) window.app3D._startMatch();
+    }, 200);
+  }
 });
