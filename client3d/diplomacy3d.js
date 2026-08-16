@@ -31,7 +31,7 @@ export class Diplomacy3D {
         <div id="diplomacy-player-list"></div>
 
         <div class="dip-footer">
-          <small>Press <strong>[D]</strong> to toggle diplomacy modal anytime.</small>
+          <small>Press <strong>[P]</strong> or <strong>[F2]</strong> to toggle diplomacy modal anytime.</small>
         </div>
       </div>
     `;
@@ -164,7 +164,7 @@ export class Diplomacy3D {
 
   _bindKeys() {
     window.addEventListener("keydown", (e) => {
-      if (e.code === "KeyD" && !e.ctrlKey && !e.metaKey) {
+      if ((e.code === "KeyP" || e.code === "F2") && !e.ctrlKey && !e.metaKey) {
         // Don't toggle if user is typing in chat input
         const chatInput = document.getElementById("rts-chat-input");
         if (document.activeElement === chatInput) return;
