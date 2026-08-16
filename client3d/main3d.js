@@ -743,6 +743,7 @@ class Swarajya3DApp {
     const loop = (now) => {
       const dt = Math.min(0.1, (now - this.lastTime) / 1000.0);
       this.lastTime = now;
+      this.accumulator += dt;
       let subSteps = 0;
       while (this.accumulator >= TICK_DURATION && subSteps < 4) {
         subSteps++;
@@ -756,8 +757,11 @@ class Swarajya3DApp {
           this.mp.lockstep.tryAdvance(now);
         } else {
           if (!this.sim.over) {
+            const numAi = this.sim.players.length - 1;
             for (let seat = 1; seat < this.sim.players.length; seat++) {
-              think(this.sim, seat, this.currentAiTier);
+              if (numAi <= 1 || (this.sim.tick % numAi) === (seat - 1)) {
+                think(this.sim, seat, this.currentAiTier);
+              }
             }
           }
           step(this.sim);
