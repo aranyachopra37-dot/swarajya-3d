@@ -131,7 +131,12 @@ export class Render3D {
       const trainBar = mesh.getObjectByName("trainBar");
       const trainFill = mesh.getObjectByName("trainBarFill");
       if (trainBar && trainFill) {
-        if (b.queue && b.queue.length > 0) {
+        if (b.raising && b.raising.needed > 0) {
+          const raisePct = Math.max(0, Math.min(1, (b.raising.work || 0) / b.raising.needed));
+          trainFill.scale.set(raisePct, 1, 1);
+          trainFill.position.x = -(1 - raisePct) * 7.7;
+          trainBar.visible = true;
+        } else if (b.queue && b.queue.length > 0) {
           const unitSpec = UNITS[b.queue[0]];
           const totalTicks = unitSpec ? unitSpec.buildTicks : 100;
           const trainPct = Math.max(0, Math.min(1, (totalTicks - (b.buildTimer || 0)) / totalTicks));
@@ -424,9 +429,8 @@ export class Render3D {
       const elev = this.terrain ? this.terrain.getHeight(sx, sz) : 0;
       mesh.position.set(sx, elev, sz);
 
-      const progress = s.work !== undefined && s.spec && s.spec.work
-        ? Math.max(0.05, Math.min(1.0, s.work / s.spec.work))
-        : Math.max(0.05, Math.min(1.0, (s.hp || 10) / (s.maxHp || 100)));
+      const totalNeeded = s.needed || (s.spec ? s.spec.buildWork : 100);
+      const progress = totalNeeded > 0 ? Math.max(0.02, Math.min(1.0, (s.work || 0) / totalNeeded)) : 0.05;
 
       const risingStructure = mesh.getObjectByName("risingStructure");
       if (risingStructure) {
@@ -436,7 +440,7 @@ export class Render3D {
       const barFill = mesh.getObjectByName("progressBarFill");
       if (barFill) {
         barFill.scale.set(progress, 1, 1);
-        barFill.position.x = -(1 - progress) * 8;
+        barFill.position.x = -(1 - progress) * 7.6;
       }
     }
 

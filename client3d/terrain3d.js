@@ -1,6 +1,4 @@
-// 3D Ultra-Realistic Himalayan Alpine Environment, Majestic Tall Deodar Cedars & Boundless Horizon Terrain for Swarajya (Three.js)
-// Features multi-octave procedural ground textures, bump mapping, smooth natural terrain relief,
-// and 38-50 unit tall multi-tier Himalayan Deodar Pines (Cedrus deodara).
+// 3D Ultra-Realistic Himalayan Alpine Environment, Majestic Tall Deodar Cedars & High-Performance Terrain for Swarajya (Three.js)
 
 import { TILE, GROUND, ROCK, WATER, FOREST, HILL, GOLD } from "../dominion/grid.js";
 
@@ -108,6 +106,69 @@ export class Terrain3D {
     return texture;
   }
 
+  _createUnifiedTreeGeometry() {
+    const { THREE } = this;
+    const geometries = [];
+
+    // 1. Weathered Cedar Bark Trunk
+    const trunkGeo = new THREE.CylinderGeometry(0.8, 1.4, 40, 5);
+    trunkGeo.translate(0, 20, 0);
+    const trunkColor = new THREE.Color(0x2e1f16);
+    const trunkColors = new Float32Array(trunkGeo.attributes.position.count * 3);
+    for (let i = 0; i < trunkGeo.attributes.position.count; i++) {
+      trunkColors[i * 3] = trunkColor.r;
+      trunkColors[i * 3 + 1] = trunkColor.g;
+      trunkColors[i * 3 + 2] = trunkColor.b;
+    }
+    trunkGeo.setAttribute("color", new THREE.BufferAttribute(trunkColors, 3));
+    geometries.push(trunkGeo);
+
+    // 2. 4 Drooping Needle Tiers
+    const tiers = [
+      { r: 9.0, h: 15, y: 18, color: new THREE.Color(0x143423) },
+      { r: 7.2, h: 13, y: 26, color: new THREE.Color(0x1b4332) },
+      { r: 5.4, h: 11, y: 33, color: new THREE.Color(0x24553f) },
+      { r: 3.6, h: 9, y: 39, color: new THREE.Color(0x2d6a4f) }
+    ];
+
+    tiers.forEach(t => {
+      const cone = new THREE.ConeGeometry(t.r, t.h, 5);
+      cone.translate(0, t.y, 0);
+      const cols = new Float32Array(cone.attributes.position.count * 3);
+      for (let i = 0; i < cone.attributes.position.count; i++) {
+        cols[i * 3] = t.color.r;
+        cols[i * 3 + 1] = t.color.g;
+        cols[i * 3 + 2] = t.color.b;
+      }
+      cone.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+      geometries.push(cone);
+    });
+
+    let totalVerts = 0;
+    geometries.forEach(g => totalVerts += g.attributes.position.count);
+
+    const mergedPos = new Float32Array(totalVerts * 3);
+    const mergedNorm = new Float32Array(totalVerts * 3);
+    const mergedCol = new Float32Array(totalVerts * 3);
+
+    let offset = 0;
+    geometries.forEach(g => {
+      const p = g.attributes.position.array;
+      const n = g.attributes.normal.array;
+      const c = g.attributes.color.array;
+      mergedPos.set(p, offset * 3);
+      mergedNorm.set(n, offset * 3);
+      mergedCol.set(c, offset * 3);
+      offset += g.attributes.position.count;
+    });
+
+    const mergedGeo = new THREE.BufferGeometry();
+    mergedGeo.setAttribute("position", new THREE.BufferAttribute(mergedPos, 3));
+    mergedGeo.setAttribute("normal", new THREE.BufferAttribute(mergedNorm, 3));
+    mergedGeo.setAttribute("color", new THREE.BufferAttribute(mergedCol, 3));
+    return mergedGeo;
+  }
+
   /**
    * Builds the 3D terrain from a grid instance.
    * @param {import('../dominion/grid.js').Grid} grid 
@@ -127,9 +188,9 @@ export class Terrain3D {
     this.groundTexture.repeat.set(repeatScaleX, repeatScaleY);
     this.groundBumpMap.repeat.set(repeatScaleX, repeatScaleY);
 
-    // 1. High-Density Organic Terrain Mesh (Subdivided 2x for smooth rolling slopes)
-    const segmentsX = w * 2;
-    const segmentsY = h * 2;
+    // 1. Playable Terrain Mesh with Smooth Elevation Blending
+    const segmentsX = w;
+    const segmentsY = h;
     const geometry = new THREE.PlaneGeometry(worldW, worldH, segmentsX, segmentsY);
     geometry.rotateX(-Math.PI / 2);
 
@@ -148,72 +209,35 @@ export class Terrain3D {
     const colorGoldEarth = new THREE.Color(0xc99355);   // Rich amber gold vein
 
     for (let i = 0; i < posAttr.count; i++) {
-      const vx = posAttr.getX(i);
-      const vz = posAttr.getZ(i);
+      const gx = Math.min(w - 1, Math.floor((i % (segmentsX + 1))));
+      const gy = Math.min(h - 1, Math.floor(i / (segmentsX + 1)));
+      const tileType = cells[gy * w + gx] !== undefined ? cells[gy * w + gx] : GROUND;
 
-      // Convert world X, Z to grid tile float coordinates
-      const fx = (vx + worldW / 2) / TILE;
-      const fz = (vz + worldH / 2) / TILE;
-
-      const gx0 = Math.max(0, Math.min(w - 1, Math.floor(fx)));
-      const gy0 = Math.max(0, Math.min(h - 1, Math.floor(fz)));
-      const gx1 = Math.min(w - 1, gx0 + 1);
-      const gy1 = Math.min(h - 1, gy0 + 1);
-
-      const rx = fx - gx0;
-      const rz = fz - gy0;
-
-      const t00 = cells[gy0 * w + gx0] ?? GROUND;
-      const t10 = cells[gy0 * w + gx1] ?? GROUND;
-      const t01 = cells[gy1 * w + gx0] ?? GROUND;
-      const t11 = cells[gy1 * w + gx1] ?? GROUND;
-
-      const getBaseElev = (t) => {
-        if (t === HILL) return 24;
-        if (t === ROCK) return 56;
-        if (t === WATER) return -4.5;
-        if (t === GOLD) return 4;
-        return 0;
-      };
-
-      const e00 = getBaseElev(t00);
-      const e10 = getBaseElev(t10);
-      const e01 = getBaseElev(t01);
-      const e11 = getBaseElev(t11);
-
-      // Bilinear interpolation of terrain height
-      const e0 = e00 + (e10 - e00) * rx;
-      const e1 = e01 + (e11 - e01) * rx;
-      let elevation = e0 + (e1 - e0) * rz;
-
-      // Natural micro-terrain undulation on open ground
-      const microRoll = Math.sin(fx * 1.8) * Math.cos(fz * 1.8) * 0.75 + Math.sin(fx * 4.2 + fz * 3.7) * 0.35;
-      elevation += microRoll;
-
-      if (elevation > 18) {
-        const crag = Math.sin(fx * 3.1 + fz * 2.7) * 2.2 + Math.cos(fx * 7.5 - fz * 6.2) * 1.2;
-        elevation += crag;
-      }
-
-      // Vertex color determination
+      let elevation = 0;
       let vertexColor = colorMeadow;
-      const centerTile = cells[gy0 * w + gx0] ?? GROUND;
 
-      if (centerTile === WATER) {
-        vertexColor = colorWaterBed;
-      } else if (centerTile === GOLD) {
-        vertexColor = colorGoldEarth;
-      } else if (elevation > 46) {
-        vertexColor = colorSnowCap;
-      } else if (elevation > 22) {
-        vertexColor = colorSlateRock;
-      } else if (elevation > 10) {
+      if (tileType === HILL) {
+        elevation = 24;
         vertexColor = colorHill;
+      } else if (tileType === ROCK) {
+        elevation = 56;
+        vertexColor = colorSnowCap;
+      } else if (tileType === WATER) {
+        elevation = -4.5;
+        vertexColor = colorWaterBed;
+      } else if (tileType === GOLD) {
+        elevation = 4;
+        vertexColor = colorGoldEarth;
       } else {
-        const n = Math.sin(fx * 2.4) * Math.cos(fz * 2.4);
+        const n = Math.sin(gx * 0.4) * Math.cos(gy * 0.4);
         if (n > 0.3) vertexColor = colorMeadowSun;
         else if (n < -0.4) vertexColor = colorSoil;
         else vertexColor = colorMeadow;
+      }
+
+      if (elevation > 20) {
+        const crag = ((gx * 23 + gy * 47) % 11) * 0.9;
+        elevation += crag;
       }
 
       posAttr.setY(i, elevation);
@@ -226,10 +250,10 @@ export class Terrain3D {
       vertexColors: true,
       map: this.groundTexture,
       bumpMap: this.groundBumpMap,
-      bumpScale: 0.85,
+      bumpScale: 0.75,
       roughness: 0.82,
       metalness: 0.05,
-      flatShading: false, // Smooth realistic natural slopes
+      flatShading: false,
     });
 
     this.terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
@@ -238,10 +262,10 @@ export class Terrain3D {
     this.terrainGroup.add(this.terrainMesh);
 
     // 2. Extended Infinite Mountain Horizon Mesh
-    const skirtWidth = worldW * 4.2;
-    const skirtHeight = worldH * 4.2;
-    const skirtSegsX = 96;
-    const skirtSegsY = 96;
+    const skirtWidth = worldW * 4.0;
+    const skirtHeight = worldH * 4.0;
+    const skirtSegsX = 64;
+    const skirtSegsY = 64;
     const skirtGeo = new THREE.PlaneGeometry(skirtWidth, skirtHeight, skirtSegsX, skirtSegsY);
     skirtGeo.rotateX(-Math.PI / 2);
 
@@ -262,17 +286,13 @@ export class Terrain3D {
 
       if (distFromEdge > 10) {
         const distRatio = Math.min(1.0, distFromEdge / (worldW * 1.3));
-        const ridgeFreq = Math.sin(vx * 0.0032) * Math.cos(vz * 0.0032);
+        const ridgeFreq = Math.sin(vx * 0.0035) * Math.cos(vz * 0.0035);
         const cragDetail = Math.sin(vx * 0.016 + vz * 0.016) * 14;
 
         skirtElev = distRatio * (85 + ridgeFreq * 75) + cragDetail;
-        if (skirtElev > 52) {
-          c = colorSnowCap;
-        } else if (skirtElev > 26) {
-          c = colorSlateRock;
-        } else {
-          c = colorHill;
-        }
+        if (skirtElev > 52) c = colorSnowCap;
+        else if (skirtElev > 26) c = colorSlateRock;
+        else c = colorHill;
       }
 
       skirtPos.setY(i, skirtElev);
@@ -284,7 +304,7 @@ export class Terrain3D {
       vertexColors: true,
       map: this.groundTexture,
       bumpMap: this.groundBumpMap,
-      bumpScale: 0.65,
+      bumpScale: 0.6,
       roughness: 0.88,
       metalness: 0.04,
       flatShading: false,
@@ -321,65 +341,33 @@ export class Terrain3D {
         const cz = (ty + 0.5) * TILE;
 
         if (type === FOREST) {
-          // Spawn 2-3 dense tall trees per forest tile
+          // 2 dense tall trees per forest tile
           treePositions.push({ x: cx - 2.5, z: cz - 2.0, scale: 1.15, rot: (tx * 1.7) % 6.28 });
-          treePositions.push({ x: cx + 3.0, z: cz + 2.5, scale: 0.95, rot: (ty * 2.3) % 6.28 });
-          if ((tx + ty) % 2 === 0) {
-            treePositions.push({ x: cx - 1.0, z: cz + 3.5, scale: 1.3, rot: (tx * 3.1) % 6.28 });
-          }
+          treePositions.push({ x: cx + 2.5, z: cz + 2.0, scale: 0.95, rot: (ty * 2.3) % 6.28 });
         } else if (type === GOLD) {
           goldPositions.push({ x: cx, y: 4, z: cz });
         } else if (type === GROUND) {
-          if ((tx * 13 + ty * 29) % 37 === 0) {
+          if ((tx * 13 + ty * 29) % 41 === 0) {
             boulderPositions.push({ x: cx + 4, y: 0, z: cz - 3 });
           }
-          if ((tx * 17 + ty * 31) % 11 === 0) {
+          if ((tx * 17 + ty * 31) % 19 === 0) {
             grassTuftPositions.push({ x: cx - 4, z: cz + 3, scale: 1.0 });
-            grassTuftPositions.push({ x: cx + 3, z: cz - 2, scale: 0.8 });
           }
         }
       }
     }
 
-    // 4A. TALL MULTI-TIER HIMALAYAN DEODAR CEDAR PINES (Height: 38 - 52 units!)
+    // 4A. TALL MULTI-TIER HIMALAYAN DEODAR CEDAR PINES (Single Unified InstancedMesh)
     if (treePositions.length > 0) {
-      const treeGroup = new THREE.Group();
-
-      // Weathered Cedar Bark Trunk
-      const trunkGeo = new THREE.CylinderGeometry(0.8, 1.4, 40, 6);
-      trunkGeo.translate(0, 20, 0);
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2e1f16, roughness: 0.95 });
-      const trunkInst = new THREE.InstancedMesh(trunkGeo, trunkMat, treePositions.length);
-      trunkInst.castShadow = true;
-      trunkInst.receiveShadow = true;
-
-      // Tier 1 (Lowest Broad Needle Tier)
-      const t1Geo = new THREE.ConeGeometry(9.0, 15, 6);
-      t1Geo.translate(0, 18, 0);
-      const needleMat1 = new THREE.MeshStandardMaterial({ color: 0x143423, roughness: 0.88, flatShading: true });
-      const t1Inst = new THREE.InstancedMesh(t1Geo, needleMat1, treePositions.length);
-      t1Inst.castShadow = true;
-
-      // Tier 2 (Mid Tier)
-      const t2Geo = new THREE.ConeGeometry(7.2, 13, 6);
-      t2Geo.translate(0, 26, 0);
-      const needleMat2 = new THREE.MeshStandardMaterial({ color: 0x1b4332, roughness: 0.88, flatShading: true });
-      const t2Inst = new THREE.InstancedMesh(t2Geo, needleMat2, treePositions.length);
-      t2Inst.castShadow = true;
-
-      // Tier 3 (Upper Tier)
-      const t3Geo = new THREE.ConeGeometry(5.4, 11, 6);
-      t3Geo.translate(0, 33, 0);
-      const needleMat3 = new THREE.MeshStandardMaterial({ color: 0x24553f, roughness: 0.88, flatShading: true });
-      const t3Inst = new THREE.InstancedMesh(t3Geo, needleMat3, treePositions.length);
-      t3Inst.castShadow = true;
-
-      // Tier 4 (Crown Needle Apex)
-      const t4Geo = new THREE.ConeGeometry(3.6, 9, 6);
-      t4Geo.translate(0, 39, 0);
-      const needleMat4 = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.88, flatShading: true });
-      const t4Inst = new THREE.InstancedMesh(t4Geo, needleMat4, treePositions.length);
-      t4Inst.castShadow = true;
+      const unifiedTreeGeo = this._createUnifiedTreeGeometry();
+      const treeMat = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.88,
+        flatShading: true
+      });
+      const treeMesh = new THREE.InstancedMesh(unifiedTreeGeo, treeMat, treePositions.length);
+      treeMesh.castShadow = true;
+      treeMesh.receiveShadow = true;
 
       const dummy = new THREE.Object3D();
       treePositions.forEach((pos, i) => {
@@ -388,25 +376,11 @@ export class Terrain3D {
         dummy.scale.set(pos.scale, pos.scale, pos.scale);
         dummy.rotation.y = pos.rot;
         dummy.updateMatrix();
-
-        trunkInst.setMatrixAt(i, dummy.matrix);
-        t1Inst.setMatrixAt(i, dummy.matrix);
-        t2Inst.setMatrixAt(i, dummy.matrix);
-        t3Inst.setMatrixAt(i, dummy.matrix);
-        t4Inst.setMatrixAt(i, dummy.matrix);
+        treeMesh.setMatrixAt(i, dummy.matrix);
       });
 
-      trunkInst.instanceMatrix.needsUpdate = true;
-      t1Inst.instanceMatrix.needsUpdate = true;
-      t2Inst.instanceMatrix.needsUpdate = true;
-      t3Inst.instanceMatrix.needsUpdate = true;
-      t4Inst.instanceMatrix.needsUpdate = true;
-
-      this.terrainGroup.add(trunkInst);
-      this.terrainGroup.add(t1Inst);
-      this.terrainGroup.add(t2Inst);
-      this.terrainGroup.add(t3Inst);
-      this.terrainGroup.add(t4Inst);
+      treeMesh.instanceMatrix.needsUpdate = true;
+      this.terrainGroup.add(treeMesh);
     }
 
     // 4B. Instanced Glowing Gold Ore Seams
@@ -455,7 +429,7 @@ export class Terrain3D {
       this.terrainGroup.add(boulderMesh);
     }
 
-    // 4D. Instanced 3D Grass Tufts & Wildflower Clusters
+    // 4D. Instanced 3D Grass Tufts
     if (grassTuftPositions.length > 0) {
       const tuftGeo = new THREE.ConeGeometry(2.4, 4.2, 3);
       tuftGeo.translate(0, 2.1, 0);
@@ -467,7 +441,7 @@ export class Terrain3D {
       grassTuftPositions.forEach((pos, i) => {
         const elev = this.getHeight(pos.x, pos.z);
         dummy.position.set(pos.x, elev, pos.z);
-        dummy.scale.set(pos.scale * (0.8 + (i % 3) * 0.2), pos.scale * (0.9 + (i % 2) * 0.3), pos.scale);
+        dummy.scale.set(pos.scale * 0.9, pos.scale * 1.0, pos.scale * 0.9);
         dummy.rotation.y = (i * 1.7) % 6.28;
         dummy.updateMatrix();
         tuftMesh.setMatrixAt(i, dummy.matrix);

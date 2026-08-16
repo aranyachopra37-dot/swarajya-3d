@@ -657,6 +657,22 @@ class Swarajya3DApp {
       }
     }
 
+    if (this.sim.sites) {
+      for (const s of this.sim.sites) {
+        if (s.owner === this.localPlayer) {
+          const tiles = s.spec ? s.spec.tiles : 2;
+          const sx = (s.tx + tiles / 2) * TILE;
+          const sz = (s.ty + tiles / 2) * TILE;
+          const half = (tiles * TILE) / 2;
+          if (Math.abs(sx - pt.x) <= half + clickRadius && Math.abs(sz - pt.z) <= half + clickRadius) {
+            this.selection.add(s.id);
+            this._updateContextualHUD();
+            return;
+          }
+        }
+      }
+    }
+
     this._updateContextualHUD();
   }
 
@@ -727,9 +743,9 @@ class Swarajya3DApp {
     const loop = (now) => {
       const dt = Math.min(0.1, (now - this.lastTime) / 1000.0);
       this.lastTime = now;
-      this.accumulator += dt;
-
-      while (this.accumulator >= TICK_DURATION) {
+      let subSteps = 0;
+      while (this.accumulator >= TICK_DURATION && subSteps < 4) {
+        subSteps++;
         for (const u of this.sim.units) {
           u.prevX = u.x;
           u.prevY = u.y;
@@ -813,6 +829,7 @@ class Swarajya3DApp {
 
         this.accumulator -= TICK_DURATION;
       }
+      if (subSteps >= 4) this.accumulator = 0;
 
       const alpha = this.accumulator / TICK_DURATION;
 
@@ -887,8 +904,33 @@ class Swarajya3DApp {
     const selIds = Array.from(this.selection);
     const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
     const selBuildings = this.sim.buildings.filter(b => selIds.includes(b.id));
+    const selSites = this.sim.sites ? this.sim.sites.filter(s => selIds.includes(s.id)) : [];
 
-    if (selUnits.length === 1) {
+    if (selSites.length === 1) {
+      const s = selSites[0];
+      const totalNeeded = s.needed || (s.spec ? s.spec.buildWork : 100);
+      const buildPct = totalNeeded > 0 ? Math.max(0, Math.min(100, Math.round(((s.work || 0) / totalNeeded) * 100))) : 0;
+      const hpPct = Math.round((s.hp / (s.maxHp || 100)) * 100);
+
+      infoCard.innerHTML = `
+        <div class="sel-title">${s.spec ? s.spec.name : "Structure"} [Foundation]</div>
+        <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%; background:#f4a261;"></div></div>
+        <div class="sel-stats">HP: ${Math.round(s.hp)} / ${s.maxHp || 100}</div>
+        <div style="margin-top:8px; background:#141824; border:1px solid #f4a261; border-radius:6px; padding:6px 8px; text-align:left;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+            <span style="color:#ffd166; font-weight:bold;">🔨 Construction Progress</span>
+            <span style="color:#7fd48f; font-weight:bold;">${buildPct}%</span>
+          </div>
+          <div style="height:7px; background:#1f2430; border-radius:3px; overflow:hidden; margin-bottom:6px; border:1px solid #374151;">
+            <div style="height:100%; width:${buildPct}%; background:linear-gradient(90deg, #e76f51, #f4a261); transition:width 0.1s linear;"></div>
+          </div>
+          <div style="font-size:10px; color:#9ca3af;">
+            👷 Active Builders: <strong style="color:#ffd166;">${s.builders || 0}</strong> peasants
+          </div>
+        </div>
+      `;
+      infoCard.style.display = "block";
+    } else if (selUnits.length === 1) {
       const u = selUnits[0];
       const hpPct = Math.round((u.hp / u.maxHp) * 100);
       let carryHtml = "";
@@ -908,7 +950,24 @@ class Swarajya3DApp {
       const hpPct = Math.round((b.hp / b.maxHp) * 100);
 
       let trainingHtml = "";
-      if (b.queue && b.queue.length > 0) {
+      if (b.raising && b.raising.needed > 0) {
+        const raisePct = Math.max(0, Math.min(100, Math.round(((b.raising.work || 0) / b.raising.needed) * 100)));
+        const targetTierName = b.raising.to === 1 ? "Keep (Shira Durg)" : "Palace (Mahapeeth)";
+        trainingHtml = `
+          <div style="margin-top:8px; background:#141824; border:1px solid #9b5de5; border-radius:6px; padding:6px 8px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+              <span style="color:#d4a373; font-weight:bold;">🏰 Upgrading: ${targetTierName}</span>
+              <span style="color:#7fd48f; font-weight:bold;">${raisePct}%</span>
+            </div>
+            <div style="height:7px; background:#1f2430; border-radius:3px; overflow:hidden; margin-bottom:6px; border:1px solid #374151;">
+              <div style="height:100%; width:${raisePct}%; background:linear-gradient(90deg, #9b5de5, #ffd166); transition:width 0.1s linear;"></div>
+            </div>
+            <div style="font-size:10px; color:#9ca3af;">
+              Builders Raising Hall
+            </div>
+          </div>
+        `;
+      } else if (b.queue && b.queue.length > 0) {
         const activeUnitId = b.queue[0];
         const activeSpec = UNITS[activeUnitId];
         const totalTicks = activeSpec ? activeSpec.buildTicks : 100;

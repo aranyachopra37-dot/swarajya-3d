@@ -1,8 +1,7 @@
 // Interactive 3D Tactical Minimap for Swarajya (Three.js + 2D Canvas)
-// Renders terrain topology, gold deposits, woods, entity radar blips, and camera FOV frustum.
+// Renders terrain topology, gold deposits, woods, entity radar blips, home base beacon, and live camera viewport frustum.
 
 import { TILE, GROUND, ROCK, WATER, FOREST, HILL, GOLD } from "../dominion/grid.js";
-import { OWNER_COLORS } from "./render3d.js";
 
 export class Minimap3D {
   /**
@@ -16,8 +15,8 @@ export class Minimap3D {
     this.camera = camera;
 
     this.canvas = document.createElement("canvas");
-    this.canvas.width = 180;
-    this.canvas.height = 135;
+    this.canvas.width = 190;
+    this.canvas.height = 145;
     this.canvas.id = "minimap-canvas";
     this.ctx = this.canvas.getContext("2d");
 
@@ -38,22 +37,24 @@ export class Minimap3D {
       position: absolute;
       bottom: 18px;
       right: 18px;
-      width: 184px;
-      height: 139px;
-      border: 2px solid #d4a373;
+      width: 194px;
+      height: 149px;
+      border: 2px solid #ffd166;
       border-radius: 8px;
-      background: #0f131a;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
-      z-index: 25;
+      background: #0d1117;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+      z-index: 50;
       overflow: hidden;
       cursor: crosshair;
       backdrop-filter: blur(8px);
+      user-select: none;
     `;
 
     this.canvas.style.cssText = `
       width: 100%;
       height: 100%;
       display: block;
+      cursor: crosshair;
     `;
 
     this.wrapper.appendChild(this.canvas);
@@ -61,11 +62,14 @@ export class Minimap3D {
   }
 
   _bindEvents() {
-    const handleMinimapClick = (e) => {
+    const handleMinimapInteraction = (e) => {
       if (!this.sim || !this.sim.grid) return;
       const rect = this.canvas.getBoundingClientRect();
-      const xPct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const yPct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+      const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+
+      const xPct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const yPct = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
 
       const worldW = this.sim.grid.w * TILE;
       const worldH = this.sim.grid.h * TILE;
@@ -80,14 +84,14 @@ export class Minimap3D {
       e.stopPropagation();
       e.preventDefault();
       this.isDragging = true;
-      handleMinimapClick(e);
+      handleMinimapInteraction(e);
     };
 
     const onPointerMove = (e) => {
       if (this.isDragging) {
         e.stopPropagation();
         e.preventDefault();
-        handleMinimapClick(e);
+        handleMinimapInteraction(e);
       }
     };
 
@@ -98,24 +102,19 @@ export class Minimap3D {
       }
     };
 
-    this.wrapper.addEventListener("pointerdown", onPointerDown);
-    this.wrapper.addEventListener("mousedown", onPointerDown);
-    this.canvas.addEventListener("pointerdown", onPointerDown);
-    this.canvas.addEventListener("mousedown", onPointerDown);
-    this.canvas.addEventListener("click", (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      handleMinimapClick(e);
-    });
+    this.wrapper.addEventListener("pointerdown", onPointerDown, { passive: false });
+    this.wrapper.addEventListener("mousedown", onPointerDown, { passive: false });
+    this.canvas.addEventListener("pointerdown", onPointerDown, { passive: false });
+    this.canvas.addEventListener("mousedown", onPointerDown, { passive: false });
 
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("mousemove", onPointerMove, { passive: false });
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("mouseup", onPointerUp);
   }
 
   /**
-   * Pre-renders static terrain bitmap for performance.
+   * Pre-renders static terrain bitmap for high-performance rendering.
    */
   initTerrain(sim) {
     this.sim = sim;
@@ -133,11 +132,11 @@ export class Minimap3D {
         const pIdx = idx * 4;
         const type = cells[idx];
 
-        let r = 58, g = 90, b = 64; // Grass
-        if (type === HILL) { r = 88; g = 129; b = 87; }
+        let r = 52, g = 86, b = 58; // Lush Alpine Grass
+        if (type === HILL) { r = 88; g = 120; b = 84; }
         else if (type === ROCK) { r = 240; g = 244; b = 248; } // Snow Peak
-        else if (type === WATER) { r = 29; g = 53; b = 87; }   // River
-        else if (type === FOREST) { r = 27; g = 67; b = 50; }  // Pine Woods
+        else if (type === WATER) { r = 26; g = 58; b = 84; }   // Glacial River
+        else if (type === FOREST) { r = 20; g = 52; b = 35; }  // Pine Woods
         else if (type === GOLD) { r = 255; g = 183; b = 3; }   // Gold Seam
 
         data[pIdx] = r;
@@ -151,7 +150,7 @@ export class Minimap3D {
   }
 
   /**
-   * Draws dynamic radar blips and camera frustum.
+   * Draws dynamic radar blips, home base, and active camera viewport frustum.
    */
   update(localPlayer = 0) {
     if (!this.sim || !this.sim.grid) return;
@@ -171,16 +170,39 @@ export class Minimap3D {
     const scaleX = cw / worldW;
     const scaleY = ch / worldH;
 
-    // 2. Draw Buildings
+    // 2. Draw Buildings & Construction Sites
     for (const b of this.sim.buildings) {
       const bx = (b.tx + (b.spec ? b.spec.tiles : 2) / 2) * TILE;
       const bz = (b.ty + (b.spec ? b.spec.tiles : 2) / 2) * TILE;
       const mx = bx * scaleX;
       const my = bz * scaleY;
-      const bSize = (b.spec ? b.spec.tiles : 2) * 2.2;
+      const bSize = (b.spec ? b.spec.tiles : 2) * 2.4;
 
-      ctx.fillStyle = b.owner === localPlayer ? "#7fd48f" : "#e63946";
+      if (b.owner === localPlayer) {
+        ctx.fillStyle = b.spec.isHeart ? "#ffd166" : "#7fd48f";
+      } else {
+        ctx.fillStyle = "#e63946";
+      }
       ctx.fillRect(mx - bSize / 2, my - bSize / 2, bSize, bSize);
+
+      // Home Base Icon (Star marker on starting Manor)
+      if (b.owner === localPlayer && b.spec.isHeart) {
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(mx - bSize / 2 - 1, my - bSize / 2 - 1, bSize + 2, bSize + 2);
+      }
+    }
+
+    // Construction Sites
+    if (this.sim.sites) {
+      for (const s of this.sim.sites) {
+        const sx = (s.tx + (s.spec ? s.spec.tiles : 2) / 2) * TILE;
+        const sz = (s.ty + (s.spec ? s.spec.tiles : 2) / 2) * TILE;
+        const mx = sx * scaleX;
+        const my = sz * scaleY;
+        ctx.fillStyle = "#f4a261";
+        ctx.fillRect(mx - 2, my - 2, 4, 4);
+      }
     }
 
     // 3. Draw Units
@@ -188,36 +210,33 @@ export class Minimap3D {
       const mx = u.x * scaleX;
       const my = u.y * scaleY;
 
-      ctx.fillStyle = u.owner === localPlayer ? "#ffd166" : "#e63946";
+      ctx.fillStyle = u.owner === localPlayer ? "#ffe6a7" : "#e63946";
       ctx.beginPath();
-      ctx.arc(mx, my, u.spec.worker ? 1.5 : 2.5, 0, Math.PI * 2);
+      ctx.arc(mx, my, u.spec.worker ? 1.8 : 2.6, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 4. Draw Camera Viewpoint Frustum
+    // 4. Draw Camera Viewport Frustum Box (High-Contrast Golden Rect)
     const camTarget = this.rtsCamera.target;
     const ctxCamX = camTarget.x * scaleX;
     const ctxCamY = camTarget.z * scaleY;
 
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(ctxCamX, ctxCamY, 4.5, 0, Math.PI * 2);
-    ctx.stroke();
+    // Viewport approximate coverage box based on camera distance and pitch
+    const dist = this.rtsCamera.distance;
+    const boxW = Math.max(16, (dist * 1.3) * scaleX);
+    const boxH = Math.max(12, (dist * 0.95) * scaleY);
 
-    // Camera field-of-view cone indicator
-    const yaw = this.rtsCamera.yaw;
-    const fovLen = 14;
-    const leftAngle = yaw - Math.PI / 2 - 0.45;
-    const rightAngle = yaw - Math.PI / 2 + 0.45;
+    ctx.fillStyle = "rgba(255, 209, 102, 0.22)";
+    ctx.fillRect(ctxCamX - boxW / 2, ctxCamY - boxH / 2, boxW, boxH);
 
+    ctx.strokeStyle = "#ffd166";
+    ctx.lineWidth = 2.0;
+    ctx.strokeRect(ctxCamX - boxW / 2, ctxCamY - boxH / 2, boxW, boxH);
+
+    // Glowing Camera Center Blip
+    ctx.fillStyle = "#ffffff";
     ctx.beginPath();
-    ctx.moveTo(ctxCamX, ctxCamY);
-    ctx.lineTo(ctxCamX + Math.cos(leftAngle) * fovLen, ctxCamY + Math.sin(leftAngle) * fovLen);
-    ctx.lineTo(ctxCamX + Math.cos(rightAngle) * fovLen, ctxCamY + Math.sin(rightAngle) * fovLen);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.18)";
+    ctx.arc(ctxCamX, ctxCamY, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.stroke();
   }
 }
