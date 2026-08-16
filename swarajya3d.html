@@ -98,44 +98,45 @@
     }
     #army-roster-panel h3 {
       font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      color: #d4a373;
+      letter-spacing: 0.1em;
+      color: #f4a261;
       margin-bottom: 6px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      padding-bottom: 3px;
     }
-    .roster-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      padding: 2px 0;
-      color: #d1d5db;
+    .roster-empty {
+      font-size: 11px;
+      color: #6b7280;
+      font-style: italic;
     }
-    .roster-item .type-name { text-transform: capitalize; color: #9ca3af; }
-    .roster-item .count { font-weight: bold; color: #f3f4f6; }
-    .roster-empty { font-size: 11px; color: #6b7280; font-style: italic; }
 
-    /* Contextual Selection Card Panel */
+    /* Selection Card */
     #selection-info {
       position: absolute;
-      bottom: 96px;
-      left: 16px;
+      bottom: 84px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 10;
-      width: 230px;
       background: rgba(18, 22, 31, 0.92);
-      border: 1px solid #374151;
-      border-radius: 6px;
-      padding: 12px 14px;
-      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 8px 20px;
       display: none;
+      backdrop-filter: blur(10px);
+      text-align: center;
+      min-width: 220px;
     }
-    .sel-title { font-size: 13px; font-weight: bold; color: #f3f4f6; margin-bottom: 6px; }
-    .sel-bar { width: 100%; height: 6px; background: #374151; border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
-    .sel-fill { height: 100%; background: #52b788; transition: width 0.1s ease; }
+    .sel-title { font-size: 13px; font-weight: bold; color: #ffd166; margin-bottom: 4px; }
+    .sel-bar {
+      width: 100%;
+      height: 6px;
+      background: #111827;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .sel-fill { height: 100%; background: #52b788; border-radius: 3px; }
     .sel-stats { font-size: 11px; color: #9ca3af; }
 
-    /* Contextual Bottom Action Bar */
+    /* Action Command Bar */
     #action-bar {
       position: absolute;
       bottom: 20px;
@@ -144,54 +145,52 @@
       z-index: 10;
       display: none;
       gap: 8px;
-      background: rgba(15, 18, 26, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(18, 22, 31, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 8px;
-      padding: 8px 12px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
-      max-width: 95vw;
-      overflow-x: auto;
+      padding: 8px 16px;
+      backdrop-filter: blur(10px);
     }
     .action-btn {
-      font: inherit;
-      background: #202532;
-      border: 1px solid #363e4f;
-      color: #c8ccd8;
+      background: #1f2430;
+      border: 1px solid #3b4252;
       border-radius: 6px;
-      padding: 8px 14px;
+      padding: 6px 12px;
+      color: #e5e7eb;
+      font-family: inherit;
       cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 2px;
       transition: all 0.15s ease;
-      min-width: 105px;
+      min-width: 90px;
     }
     .action-btn:hover {
-      background: #2b3242;
-      border-color: #7fd48f;
+      background: #2b3140;
+      border-color: #ffd166;
       transform: translateY(-2px);
     }
-    .action-btn .btn-label { font-size: 11px; font-weight: 600; color: #e5e7eb; }
-    .action-btn .btn-cost { font-size: 10px; color: #e8c877; }
+    .btn-label { font-size: 11px; font-weight: bold; }
+    .btn-cost { font-size: 9px; color: #9ca3af; }
 
-    /* Minimal Controls Hint */
+    /* Controls Help */
     #controls-help {
       position: absolute;
-      bottom: 20px;
+      bottom: 14px;
       left: 16px;
       z-index: 10;
-      font-size: 11px;
-      color: #8892b0;
-      background: rgba(15, 18, 26, 0.82);
-      padding: 6px 12px;
-      border-radius: 6px;
+      background: rgba(18, 22, 31, 0.75);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      line-height: 1.4;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 10px;
+      color: #9ca3af;
+      line-height: 1.5;
     }
+    #controls-help strong { color: #d1d5db; }
 
-    /* Main Menu Modal with Tabs */
+    /* Main Menu Modal */
     #main-menu-modal {
       position: absolute;
       top: 0;
@@ -210,7 +209,9 @@
       border: 1px solid #394358;
       border-radius: 12px;
       padding: 28px 36px;
-      width: 520px;
+      width: 580px;
+      max-height: 90vh;
+      overflow-y: auto;
       box-shadow: 0 12px 48px rgba(0, 0, 0, 0.9);
       text-align: center;
     }
@@ -274,7 +275,7 @@
       font-family: inherit;
       font-size: 12px;
       outline: none;
-      width: 230px;
+      width: 250px;
     }
     .menu-input { text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold; }
     .menu-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -300,81 +301,106 @@
       transform: translateY(-2px);
     }
     .menu-btn-secondary {
-      width: 100%;
-      margin-top: 8px;
-      padding: 8px 0;
-      background: transparent;
-      color: #9ca3af;
+      background: none;
+      border: none;
+      color: #6b7280;
       font-size: 11px;
-      border: 1px solid #2b3140;
-      border-radius: 6px;
+      margin-top: 16px;
       cursor: pointer;
+      text-decoration: underline;
     }
-    .menu-btn-secondary:hover { color: #e5e7eb; border-color: #4b5563; }
 
-    #mp-status-msg {
-      margin-top: 12px;
+    /* How to Play Guide Styling */
+    .guide-box {
+      text-align: left;
+      background: #141822;
+      border: 1px solid #2b3140;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
       font-size: 12px;
-      min-height: 38px;
-      line-height: 1.4;
+      line-height: 1.5;
+    }
+    .guide-title {
+      color: #ffd166;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-box ul {
+      margin-left: 18px;
+      color: #d1d5db;
+    }
+    .guide-box li {
+      margin-bottom: 4px;
+    }
+    .guide-box kbd {
+      background: #2b3140;
+      border: 1px solid #4b5563;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 11px;
+      color: #f3f4f6;
     }
 
-    /* Victory / Defeat Modal */
+    /* Victory Banner */
     #victory-banner {
       position: absolute;
-      top: 40%;
+      top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 100;
-      background: rgba(15, 17, 23, 0.96);
-      border: 2px solid #e8c877;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(18, 22, 32, 0.95);
+      border: 2px solid #ffd166;
       border-radius: 12px;
-      padding: 28px 48px;
+      padding: 32px 48px;
       text-align: center;
-      box-shadow: 0 8px 36px rgba(0, 0, 0, 0.85);
+      z-index: 500;
       display: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    #victory-banner.visible { display: block; animation: popIn 0.3s ease; }
-    #victory-banner h2 { font-size: 24px; margin-bottom: 12px; letter-spacing: 0.1em; }
+    #victory-banner.visible {
+      display: block;
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    #victory-banner h2 { font-size: 28px; color: #7fd48f; margin-bottom: 8px; }
+    #victory-banner p { font-size: 13px; color: #9ca3af; margin-bottom: 20px; }
     #victory-banner button {
-      margin-top: 16px;
-      padding: 8px 24px;
-      background: #e8c877;
+      background: #ffd166;
+      color: #111827;
       border: none;
-      color: #14161c;
+      padding: 10px 24px;
+      border-radius: 6px;
       font-weight: bold;
       cursor: pointer;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    @keyframes popIn {
-      from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; }
-      to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
     }
   </style>
 </head>
 <body>
+
   <div id="canvas-container"></div>
   <div id="select-box"></div>
 
-  <!-- Top Header Bar with Economics, Time, and Menu Toggle -->
+  <!-- Top Status Bar -->
   <div id="top-bar">
     <div class="res-group">
-      <div class="res-item">🪙 <span class="res-gold" id="hud-gold">0</span></div>
-      <div class="res-item">🌲 <span class="res-timber" id="hud-timber">0</span></div>
-      <div class="res-item">🌾 <span class="res-food" id="hud-food">0 / 2000</span></div>
-      <div class="res-item">👥 <span class="res-pop" id="hud-pop">0 / 240</span></div>
+      <div class="res-item"><span class="res-gold">🟡</span> <span id="hud-gold">0</span></div>
+      <div class="res-item"><span class="res-timber">🌲</span> <span id="hud-timber">0</span></div>
+      <div class="res-item"><span class="res-food">🌾</span> <span id="hud-food">0 / 2000</span></div>
+      <div class="res-item"><span class="res-pop">👥</span> <span id="hud-pop">0 / 240</span></div>
     </div>
-    <div class="hud-time-tag" id="hud-time">8:00 AM ☀️</div>
-    <button id="open-menu-btn" class="header-btn" title="Open Game Menu [Esc]">⚙️ Settings & Map</button>
+    <div class="hud-time-tag" id="hud-time">08:00 AM</div>
+    <button class="header-btn" id="open-menu-btn">⚙️ Settings & Map</button>
   </div>
 
-  <!-- Army Roster Panel -->
+  <!-- Minimal Army Roster -->
   <div id="army-roster-panel">
-    <h3>Army Roster</h3>
-    <div id="army-roster">
-      <div class="roster-empty">No standing units</div>
-    </div>
+    <h3>ARMY ROSTER</h3>
+    <div id="army-roster-list" class="roster-empty">No standing units</div>
   </div>
 
   <!-- Contextual Unit / Building Selection Card -->
@@ -386,10 +412,10 @@
   <!-- Minimal Controls Legend -->
   <div id="controls-help">
     • <strong>Drag-Box / Right-Click</strong>: Move & Attack<br>
-    • <strong>WASD / Orbit / Zoom</strong>: Camera • <strong>[E]</strong>: Idle Peasant • <strong>[Esc]</strong>: Menu
+    • <strong>WASD / Shift</strong>: Camera (+50% Boost) • <strong>[E]</strong>: Idle Peasant • <strong>[Esc]</strong>: Menu
   </div>
 
-  <!-- Main Game & Match Setup Menu with Online 1v1 -->
+  <!-- Main Game & Match Setup Menu with Online 1v1 & How to Play -->
   <div id="main-menu-modal">
     <div class="menu-card">
       <h1>SWARAJYA</h1>
@@ -397,8 +423,9 @@
 
       <!-- Mode Tabs -->
       <div class="menu-tabs">
-        <button id="tab-sp-btn" class="tab-btn active" onclick="switchTab('sp')">🤖 Single Player vs AI</button>
-        <button id="tab-mp-btn" class="tab-btn" onclick="switchTab('mp')">🌐 Online 1v1 Match</button>
+        <button id="tab-sp-btn" class="tab-btn active" onclick="switchTab('sp')">🤖 Single Player</button>
+        <button id="tab-mp-btn" class="tab-btn" onclick="switchTab('mp')">🌐 Online 1v1</button>
+        <button id="tab-help-btn" class="tab-btn" onclick="switchTab('help')">📖 How to Play</button>
       </div>
 
       <!-- Shared Settings -->
@@ -441,10 +468,46 @@
         <div id="mp-status-msg"></div>
       </div>
 
+      <!-- How to Play Panel -->
+      <div id="panel-help" class="menu-panel">
+        <div class="guide-box">
+          <div class="guide-title">🏰 Economy & Resources</div>
+          <ul>
+            <li><strong>Gold (🟡)</strong>: Right-click glowing gold ore seams with selected peasants (<em>Praja</em>) to mine.</li>
+            <li><strong>Timber (🌲)</strong>: Right-click pine forests with peasants to chop cedar wood.</li>
+            <li><strong>Food (🌾)</strong>: Build <em>Kshetra</em> (Farms) to cultivate barley fields for army sustenance.</li>
+            <li><strong>Population (👥)</strong>: Train workers at your Manor to scale up your village economy.</li>
+          </ul>
+        </div>
+
+        <div class="guide-box">
+          <div class="guide-title">🎮 Controls & Navigation</div>
+          <ul>
+            <li><strong>Selection</strong>: Left-Click or Drag a box around units. Click Manor to train peasants.</li>
+            <li><strong>Orders</strong>: Right-Click ground to move, right-click enemy to attack, right-click gold/wood to assign.</li>
+            <li><strong>Camera Pan</strong>: Use <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or Arrow Keys. Hold <kbd>Shift</kbd> for <strong>+50% Speed Boost</strong>.</li>
+            <li><strong>Panoramic Zoom</strong>: Scroll mouse wheel to zoom from ground view to high mountain vista.</li>
+            <li><strong>Orbit Camera</strong>: Hold Right/Middle mouse button and drag to rotate angles.</li>
+            <li><strong>Minimap Radar</strong>: Click anywhere on the bottom-right radar to instantly pan across the map.</li>
+            <li><strong>Quick Idle Worker</strong>: Press <kbd>E</kbd> or <kbd>.</kbd> to focus next idle peasant.</li>
+          </ul>
+        </div>
+
+        <div class="guide-box">
+          <div class="guide-title">☸️ Spiritual Paths & Formations</div>
+          <ul>
+            <li><strong>Purusha Path</strong>: Heavy stone bastions (<em>Shira Durg</em>) & divine armored guardians.</li>
+            <li><strong>Shakti Path</strong>: Tantric shrines (<em>Mantra Shala</em>) & Himalayan war bear riders (<em>Rksha</em>).</li>
+            <li><strong>Abheda Path</strong>: Mechanical foundries (<em>Asthi Shala</em>), catapults & gate rams.</li>
+            <li><strong>Tactical Formations</strong>: Select troops to form <em>Pankti</em> (Line), <em>Garuḍa</em> (Wedge), or <em>Vajra</em> (Square).</li>
+          </ul>
+        </div>
+      </div>
+
       <!-- Audio Settings -->
       <div style="border-top:1px solid #2b3140; margin-top:16px; padding-top:12px;">
         <div class="menu-row">
-          <label>Ambient Music</label>
+          <label>Ambient Lore Music</label>
           <input type="range" id="music-volume" class="menu-slider" min="0" max="1" step="0.05" value="0.8">
         </div>
         <div class="menu-row">
@@ -468,8 +531,10 @@
     function switchTab(tab) {
       document.getElementById('tab-sp-btn').classList.toggle('active', tab === 'sp');
       document.getElementById('tab-mp-btn').classList.toggle('active', tab === 'mp');
+      document.getElementById('tab-help-btn').classList.toggle('active', tab === 'help');
       document.getElementById('panel-sp').classList.toggle('active', tab === 'sp');
       document.getElementById('panel-mp').classList.toggle('active', tab === 'mp');
+      document.getElementById('panel-help').classList.toggle('active', tab === 'help');
     }
   </script>
 
