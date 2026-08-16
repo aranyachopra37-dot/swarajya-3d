@@ -20,6 +20,8 @@ import { CursorManager } from "./cursors3d.js";
 import { LoreAudio3D } from "./lore_audio3d.js";
 import { Minimap3D } from "./minimap3d.js";
 import { Wheel3D } from "./wheel3d.js";
+import { Chat3D } from "./chat3d.js";
+import { Diplomacy3D } from "./diplomacy3d.js";
 import { FORMATIONS } from "./formations.js";
 import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
 
@@ -167,6 +169,20 @@ class Swarajya3DApp {
       const mx = (localManor.tx + localManor.spec.tiles / 2) * TILE;
       const mz = (localManor.ty + localManor.spec.tiles / 2) * TILE;
       this.rtsCamera.focusOn(mx, mz);
+    }
+
+    if (!this.chat) {
+      this.chat = new Chat3D(document.body, (text, target) => {
+        this._dispatchCommand(cmd.chat(text, target));
+      });
+    }
+
+    if (!this.diplomacy) {
+      this.diplomacy = new Diplomacy3D(
+        document.body,
+        (seat, stance) => this._dispatchCommand(cmd.diplomacy(seat, stance)),
+        (seat, res, amt) => this._dispatchCommand(cmd.tribute(seat, res, amt))
+      );
     }
   }
 
@@ -486,6 +502,16 @@ class Swarajya3DApp {
       });
     }
 
+    const openDipBtn = document.getElementById("open-dip-btn");
+    if (openDipBtn) {
+      openDipBtn.addEventListener("click", () => {
+        if (this.diplomacy) {
+          this.diplomacy.toggle();
+          this.diplomacy.update(this.sim, this.localPlayer);
+        }
+      });
+    }
+
     if (openMenuBtn) {
       openMenuBtn.addEventListener("click", () => this._toggleGameMenu());
     }
@@ -675,6 +701,44 @@ class Swarajya3DApp {
           this.sim.sounds.length = 0;
         }
 
+        if (this.sim.events && this.sim.events.length > 0) {
+          for (const ev of this.sim.events) {
+            if (ev.type === "chat") {
+              const author = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+              const col = this.sim.players[ev.from]?.colour || "#f4a261";
+              if (this.chat) {
+                this.chat.addMessage({ author, text: ev.text, type: "normal", color: col });
+                if (!this.isOnline && ev.from === this.localPlayer) {
+                  this.chat.handleAiResponse(this.sim, ev.text);
+                }
+              }
+            } else if (ev.type === "diplomacy_change") {
+              const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+              const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
+              if (this.chat) {
+                this.chat.addMessage({
+                  author: "Diplomacy",
+                  text: `${pFrom} is now ${ev.stance.toUpperCase()} with ${pTo}`,
+                  type: "diplomacy",
+                });
+              }
+              this.loreAudio.playTempleBell(648);
+            } else if (ev.type === "tribute") {
+              const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+              const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
+              if (this.chat) {
+                this.chat.addMessage({
+                  author: "Tribute",
+                  text: `${pFrom} gifted ${ev.amount} ${ev.resource} to ${pTo}!`,
+                  type: "system",
+                });
+              }
+              this.loreAudio.playTempleBell(720);
+            }
+          }
+          this.sim.events.length = 0;
+        }
+
         const playerPath = this.sim.players[this.localPlayer]?.path;
         if (playerPath && this.currentPath !== playerPath) {
           this.currentPath = playerPath;
@@ -786,6 +850,7 @@ class Swarajya3DApp {
     const hasWorker = selUnits.some(u => u.spec.worker);
     const manor = selBuildings.find(b => b.spec.isHeart);
     const barracks = selBuildings.find(b => b.spec.id === "barracks");
+    const armory = selBuildings.find(b => b.spec.id === "armory");
     const factory = selBuildings.find(b => b.spec.id === "factory");
 
     if (hasWorker) {
@@ -793,6 +858,8 @@ class Swarajya3DApp {
         { id: "build_farm", label: "Kshetra (Farm)", cost: "40g 30w", desc: "Grows grain" },
         { id: "build_warehouse", label: "Kosha (Warehouse)", cost: "60g 50w", desc: "Storehouse" },
         { id: "build_barracks", label: "Akhara (Barracks)", cost: "120g 90w", desc: "Martial training" },
+        { id: "build_armory", label: "Khadga Shala (Armory)", cost: "160g 140w", desc: "Foundry & War Chariots" },
+        { id: "build_watchBeacon", label: "Dhvaja (Beacon)", cost: "50g 80w", desc: "Mountain watch beacon" },
         { id: "build_bastion", label: "Shira Durg (Bastion)", cost: "200g 200w", desc: "Purusha Path" },
         { id: "build_lair", label: "Mantra Shala (Lair)", cost: "360g 180w", desc: "Shakti Path" },
         { id: "build_factory", label: "Asthi Shala (Factory)", cost: "190g 160w", desc: "Abheda Path" },
@@ -805,6 +872,11 @@ class Swarajya3DApp {
       actions = [
         { id: "train_spearman", label: "Shulin (Spearman)", cost: "70g 10f", desc: "Frontline spear" },
         { id: "train_archer", label: "Dhanurdhara (Archer)", cost: "80g 15w 10f", desc: "Ranged archer" },
+        { id: "train_yogini", label: "Yogini (Dakini)", cost: "110g 70f", desc: "Tantric lightning mystic" },
+      ];
+    } else if (armory) {
+      actions = [
+        { id: "train_ratha", label: "Ratha (Chariot)", cost: "120g 90w 50f", desc: "Mobile ballista engine" },
       ];
     } else if (factory) {
       actions = [
@@ -839,6 +911,16 @@ class Swarajya3DApp {
           this._dispatchCommand(cmd.train(barracks.id, "spearman"));
         } else if (act === "train_archer" && barracks) {
           this._dispatchCommand(cmd.train(barracks.id, "archer"));
+        } else if (act === "train_yogini" && barracks) {
+          this._dispatchCommand(cmd.train(barracks.id, "yogini"));
+        } else if (act === "train_ratha" && armory) {
+          this._dispatchCommand(cmd.train(armory.id, "ratha"));
+        } else if (act === "form_line") {
+          this._dispatchCommand(cmd.form(Array.from(this.selection), "line"));
+        } else if (act === "form_wedge") {
+          this._dispatchCommand(cmd.form(Array.from(this.selection), "wedge"));
+        } else if (act === "form_square") {
+          this._dispatchCommand(cmd.form(Array.from(this.selection), "square"));
         } else if (act.startsWith("build_")) {
           this.placingBuildingType = act.replace("build_", "");
         }

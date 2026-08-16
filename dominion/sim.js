@@ -251,11 +251,27 @@ export const BUILDINGS = {
   },
   barracks: {
     id: "barracks", name: "Akhara",
-    plain: "Barracks. Trains Shulin (spearmen) and Dhanurdhara (archers) — your basic foot soldiers.", cost: { gold: 120, timber: 90 }, tiles: 2, hp: 700,
+    plain: "Barracks. Trains Shulin (spearmen), Dhanurdhara (archers), and Yogini (Tantric mystics).", cost: { gold: 120, timber: 90 }, tiles: 2, hp: 700,
     buildWork: 620,
-    trains: ["spearman", "archer"],
+    trains: ["spearman", "archer", "yogini"],
     colour: "#c08a5a",
     lore: "Where the queue forms and the shouting starts.",
+  },
+  armory: {
+    id: "armory", name: "Khadga Shala",
+    plain: "Royal Armory & Foundry. Forges heavy plate armor, increases troop resilience, and constructs Ratha (War Chariots).", cost: { gold: 160, timber: 140 }, tiles: 2, hp: 850,
+    buildWork: 950,
+    trains: ["ratha"],
+    colour: "#9c8158",
+    lore: "Where the iron of the peaks is beaten into blades and chariot wheel rims.",
+  },
+  watchBeacon: {
+    id: "watchBeacon", name: "Dhvaja Stambha",
+    plain: "Sacred Watch Beacon. Tall mountain spire providing wide line-of-sight vision across foggy mountain passes.", cost: { gold: 50, timber: 80 }, tiles: 1, hp: 500,
+    buildWork: 320,
+    sightRange: 450,
+    colour: "#e76f51",
+    lore: "A flame high upon the ridge, watching the passes day and night.",
   },
   stables: {
     id: "stables", name: "Vaji Shala",
@@ -562,6 +578,21 @@ export const UNITS = {
     buildTicks: 20 * 9,
     hp: 190, damage: 15, reload: 24, range: 22, speed: 38, radius: 10,
     colour: "#93a3bd",
+  },
+  yogini: {
+    id: "yogini", name: "Yogini",
+    plain: "Tantric Mystic. Swift esoteric adept who channels lightning bolts and spiritual wards.", cost: { gold: 110, food: 70 },
+    buildTicks: 20 * 8,
+    hp: 85, damage: 16, reload: 22, range: 115, speed: 62, radius: 8,
+    colour: "#e76f51",
+  },
+  ratha: {
+    id: "ratha", name: "Ratha",
+    plain: "War Chariot & Ballista. Fast mobile artillery carriage firing armor-piercing ballista bolts.", cost: { gold: 120, timber: 90, food: 50 },
+    buildTicks: 20 * 11,
+    hp: 240, damage: 20, reload: 34, range: 160, speed: 76, radius: 12,
+    vsBuilding: 3.0, siege: true,
+    colour: "#d4a373",
   },
 };
 
@@ -2102,6 +2133,9 @@ export function createSim(seed = 1, mapId = "twoGates") {
 
     events: [],
     sounds: [],
+    diplomacy: Array.from({ length: map.starts.length }, (_, i) =>
+      Array.from({ length: map.starts.length }, (_, j) => (i === j ? "self" : "enemy"))
+    ),
   };
 
   for (const [tx, ty] of goldSeams(grid)) {
@@ -4664,7 +4698,7 @@ function findTarget(sim, unit, hash) {
   }
 
   for (const other of hash.near(unit.x, unit.y)) {
-    if (other.owner === unit.owner) continue;
+    if (other.owner === unit.owner || (sim.diplomacy && sim.diplomacy[unit.owner]?.[other.owner] === "ally")) continue;
     const dx = other.x - unit.x;
     const dy = other.y - unit.y;
     const d2 = dx * dx + dy * dy;
@@ -4679,7 +4713,7 @@ function findTarget(sim, unit, hash) {
   // Structures, once there is no man left to swing at. Foundations count: a
   // half-built barracks is a legitimate and rewarding thing to catch.
   for (const structure of [...sim.buildings, ...sim.sites]) {
-    if (structure.owner === unit.owner) continue;
+    if (structure.owner === unit.owner || (sim.diplomacy && sim.diplomacy[unit.owner]?.[structure.owner] === "ally")) continue;
     // Distance to the footprint, not the centre, or big things are unhittable
     // from the side.
     const d2 = gapTo(structure, unit.x, unit.y);
@@ -4838,4 +4872,50 @@ export function goldSeams(grid) {
     }
   }
   return out;
+}
+
+export function queueDiplomacy(sim, owner, targetSeat, stance) {
+  if (targetSeat < 0 || targetSeat >= sim.players.length || targetSeat === owner) return { ok: false, reason: "invalid target" };
+  if (stance !== "ally" && stance !== "neutral" && stance !== "enemy") return { ok: false, reason: "invalid stance" };
+  sim.diplomacy[owner][targetSeat] = stance;
+  sim.events.push({
+    type: "diplomacy_change",
+    from: owner,
+    to: targetSeat,
+    stance,
+    tick: sim.tick,
+  });
+  return { ok: true };
+}
+
+export function queueTribute(sim, owner, targetSeat, resource, amount) {
+  if (targetSeat < 0 || targetSeat >= sim.players.length || targetSeat === owner) return { ok: false, reason: "invalid target" };
+  if (!RESOURCES.includes(resource)) return { ok: false, reason: "invalid resource" };
+  const pFrom = sim.players[owner];
+  const pTo = sim.players[targetSeat];
+  const amt = Math.max(0, Math.min(pFrom[resource] || 0, amount));
+  if (amt <= 0) return { ok: false, reason: "insufficient resources" };
+  pFrom[resource] -= amt;
+  pTo[resource] += amt;
+  sim.events.push({
+    type: "tribute",
+    from: owner,
+    to: targetSeat,
+    resource,
+    amount: amt,
+    tick: sim.tick,
+  });
+  return { ok: true };
+}
+
+export function queueChat(sim, owner, text, target = -1) {
+  const clean = String(text).slice(0, 140);
+  sim.events.push({
+    type: "chat",
+    from: owner,
+    target, // -1: All, >=0: Specific player
+    text: clean,
+    tick: sim.tick,
+  });
+  return { ok: true };
 }

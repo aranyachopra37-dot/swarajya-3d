@@ -294,6 +294,48 @@ export class Render3D {
       chimneyMesh.position.set(half * 0.4, 18, half * 0.4);
       group.add(chimneyMesh);
 
+    } else if (bType === "armory") {
+      const forgeGeo = new THREE.BoxGeometry(size * 0.88, 14, size * 0.88);
+      const forgeMesh = new THREE.Mesh(forgeGeo, this.materials.stoneDark);
+      forgeMesh.position.y = 7;
+      forgeMesh.castShadow = true;
+      group.add(forgeMesh);
+
+      const chimneyGeo = new THREE.CylinderGeometry(2, 3, 16, 8);
+      const chimney = new THREE.Mesh(chimneyGeo, this.materials.iron);
+      chimney.position.set(half * 0.45, 18, half * 0.45);
+      group.add(chimney);
+
+      const anvilGeo = new THREE.BoxGeometry(4, 3, 3);
+      const anvil = new THREE.Mesh(anvilGeo, this.materials.ironBright);
+      anvil.position.set(-half * 0.3, 3, half * 0.5);
+      group.add(anvil);
+
+      const roofGeo = new THREE.ConeGeometry(size * 0.74, 8, 4);
+      roofGeo.rotateY(Math.PI / 4);
+      const roofMesh = new THREE.Mesh(roofGeo, this.materials.roofSlate);
+      roofMesh.position.y = 18;
+      roofMesh.castShadow = true;
+      group.add(roofMesh);
+
+    } else if (bType === "watchBeacon") {
+      const spireGeo = new THREE.CylinderGeometry(2.5, 4.5, 36, 8);
+      const spire = new THREE.Mesh(spireGeo, this.materials.stone);
+      spire.position.y = 18;
+      spire.castShadow = true;
+      group.add(spire);
+
+      const bowlGeo = new THREE.CylinderGeometry(5.0, 3.0, 3, 8);
+      const bowl = new THREE.Mesh(bowlGeo, this.materials.roofGold);
+      bowl.position.y = 37;
+      group.add(bowl);
+
+      const flameGeo = new THREE.DodecahedronGeometry(2.5, 0);
+      const flameMat = new THREE.MeshBasicMaterial({ color: 0xff7b00 });
+      const flame = new THREE.Mesh(flameGeo, flameMat);
+      flame.position.y = 40;
+      group.add(flame);
+
     } else {
       const boxGeo = new THREE.BoxGeometry(size * 0.8, 12, size * 0.8);
       const boxMesh = new THREE.Mesh(boxGeo, this.materials.stone);
@@ -727,6 +769,84 @@ export class Render3D {
       quiver.position.set(0.8, 8.5, -1.4);
       quiver.rotation.z = 0.35;
       group.add(quiver);
+
+    } else if (uType === "yogini") {
+      // Yogini: Tantric Dakini with Silk Robes & Mystic Vajra Orb
+      const torsoGeo = new THREE.CylinderGeometry(1.4, 1.8, 5.5, 8);
+      const torso = new THREE.Mesh(torsoGeo, ownerMat);
+      torso.position.y = 7.5;
+      torso.castShadow = true;
+      group.add(torso);
+
+      const headGeo = new THREE.SphereGeometry(1.4, 8, 8);
+      const head = new THREE.Mesh(headGeo, this.materials.skin);
+      head.position.y = 11.2;
+      group.add(head);
+
+      const crownGeo = new THREE.TorusGeometry(1.5, 0.25, 4, 8);
+      crownGeo.rotateX(Math.PI / 2);
+      const crown = new THREE.Mesh(crownGeo, this.materials.roofGold);
+      crown.position.y = 11.8;
+      group.add(crown);
+
+      const legGeo = new THREE.CylinderGeometry(0.55, 0.45, 5.0, 6);
+      legGeo.translate(0, -2.5, 0);
+      const legL = new THREE.Group();
+      legL.name = "legLeft";
+      legL.position.set(-0.8, 5.2, 0);
+      legL.add(new THREE.Mesh(legGeo, this.materials.clothRobe));
+      group.add(legL);
+
+      const legR = new THREE.Group();
+      legR.name = "legRight";
+      legR.position.set(0.8, 5.2, 0);
+      legR.add(new THREE.Mesh(legGeo, this.materials.clothRobe));
+      group.add(legR);
+
+      // Left Hand: Floating Mystic Orb
+      const orbGeo = new THREE.DodecahedronGeometry(1.6, 0);
+      const orbMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+      const orb = new THREE.Mesh(orbGeo, orbMat);
+      orb.position.set(-3.0, 9.5, 1.5);
+      group.add(orb);
+
+      // Right Hand: Lotus Staff
+      const staffGeo = new THREE.CylinderGeometry(0.2, 0.2, 14);
+      const staff = new THREE.Mesh(staffGeo, this.materials.roofGold);
+      staff.position.set(2.5, 8.5, 0);
+      group.add(staff);
+
+    } else if (uType === "ratha") {
+      // Ratha: War Chariot with 2 Heavy Wheels & Mounted Ballista
+      const cabGeo = new THREE.BoxGeometry(14, 6, 10);
+      const cab = new THREE.Mesh(cabGeo, this.materials.cedarTimber);
+      cab.position.y = 5.5;
+      cab.castShadow = true;
+      group.add(cab);
+
+      // Left and Right Bronze-Rimmed Wheels
+      const wheelGeo = new THREE.CylinderGeometry(4.5, 4.5, 1.2, 12);
+      wheelGeo.rotateZ(Math.PI / 2);
+      const wheelL = new THREE.Mesh(wheelGeo, this.materials.roofGold);
+      wheelL.position.set(-7.5, 4.5, 0);
+      wheelL.castShadow = true;
+      group.add(wheelL);
+
+      const wheelR = new THREE.Mesh(wheelGeo, this.materials.roofGold);
+      wheelR.position.set(7.5, 4.5, 0);
+      wheelR.castShadow = true;
+      group.add(wheelR);
+
+      // Mounted Heavy Ballista
+      const ballistaGeo = new THREE.BoxGeometry(3, 3, 14);
+      const ballista = new THREE.Mesh(ballistaGeo, this.materials.iron);
+      ballista.position.set(0, 10.5, 0);
+      group.add(ballista);
+
+      const bowArmGeo = new THREE.BoxGeometry(16, 1.2, 1.5);
+      const bowArm = new THREE.Mesh(bowArmGeo, this.materials.woodDark);
+      bowArm.position.set(0, 11, 5.5);
+      group.add(bowArm);
 
     } else if (uType === "guardian") {
       const torsoGeo = new THREE.CylinderGeometry(2.4, 2.8, 7.0, 8);

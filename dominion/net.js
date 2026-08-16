@@ -28,6 +28,7 @@
 import {
   step, queueBuild, queueTrain, queueOrder, queueAttack, queueHold, queueRally,
   queueErect, queueConvert, queueDisband, queueResign, queueRaise, queueForm,
+  queueDiplomacy, queueTribute, queueChat,
   RESOURCES,
 } from "./sim.js";
 
@@ -237,6 +238,12 @@ export function applyCommand(sim, owner, cmd) {
       return queueRaise(sim, owner, cmd.units ?? null);
     case "g":
       return queueForm(sim, owner, cmd.units);
+    case "dip":
+      return queueDiplomacy(sim, owner, cmd.target, cmd.stance);
+    case "trib":
+      return queueTribute(sim, owner, cmd.target, cmd.resource, cmd.amount);
+    case "chat":
+      return queueChat(sim, owner, cmd.text, cmd.target);
     default:
       return { ok: false, reason: "unknown command" };
   }
@@ -260,6 +267,9 @@ export const cmd = {
   // does: the men you had picked are the men who do the work.
   raise: (units = null) => ({ k: "u", units: units ? [...units] : null }),
   form: (units) => ({ k: "g", units: [...units] }),
+  diplomacy: (target, stance) => ({ k: "dip", target, stance }),
+  tribute: (target, resource, amount) => ({ k: "trib", target, resource, amount }),
+  chat: (text, target = -1) => ({ k: "chat", text, target }),
 };
 
 // --- The engine --------------------------------------------------------------
