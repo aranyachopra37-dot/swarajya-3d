@@ -23,7 +23,6 @@ import { Wheel3D } from "./wheel3d.js";
 import { FORMATIONS } from "./formations.js";
 import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
 import { initAudio, playCues, setSfxVolume } from "../src/audio.js";
-import { siegeMusic, pathMusic, endMusic, setMusicVolume } from "../src/music.js";
 
 const TICK_DURATION = 1.0 / TICKS_PER_SECOND; // 50ms per simulation tick
 
@@ -206,7 +205,7 @@ class Swarajya3DApp {
     if (!this.audioStarted) {
       initAudio();
       this.loreAudio.init();
-      try { siegeMusic(); } catch {}
+      this.loreAudio.setMapTerrain(this.currentMapId);
       this.audioStarted = true;
     }
   }
@@ -504,7 +503,6 @@ class Swarajya3DApp {
     if (musicSlider) {
       musicSlider.addEventListener("input", (e) => {
         const v = parseFloat(e.target.value);
-        setMusicVolume(v);
         this.loreAudio.setMusicVolume(v);
       });
     }
@@ -676,7 +674,7 @@ class Swarajya3DApp {
         const playerPath = this.sim.players[this.localPlayer]?.path;
         if (playerPath && this.currentPath !== playerPath) {
           this.currentPath = playerPath;
-          try { pathMusic(playerPath); } catch {}
+          this.loreAudio.playTempleBell(648);
         }
 
         this.accumulator -= TICK_DURATION;
@@ -719,8 +717,8 @@ class Swarajya3DApp {
       if (banner && !banner.classList.contains("visible")) {
         banner.classList.add("visible");
         const won = this.sim.winner === this.localPlayer;
-        try { endMusic(won); } catch {}
         if (won) this.loreAudio.playTempleBell(864);
+        else this.loreAudio.playWarDrum(45, 0.9);
         banner.querySelector("h2").textContent = won ? "VICTORY — SWARAJYA CLAIMED" : "DEFEAT — HALL DESTROYED";
         banner.querySelector("h2").style.color = won ? "#7fd48f" : "#e63946";
       }

@@ -1,5 +1,5 @@
 // Dynamic Contextual In-Game Mouse Cursors for Swarajya 3D
-// Generates crisp, high-DPI SVG RTS cursors and manages hover states.
+// Generates crisp, high-DPI SVG RTS cursors with action icons and assignment chain links.
 
 // 1. Default Himalayan Golden Dagger Pointer
 const CURSOR_DEFAULT = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
@@ -9,19 +9,17 @@ const CURSOR_DEFAULT = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/20
     </filter>
   </defs>
   <g filter="url(%23shadow)">
-    <!-- Golden Blade Pointer -->
     <path d="M4,4 L18,14 L12,17 L17,26 L13,28 L8,19 L4,23 Z" fill="%23f4a261" stroke="%23264653" stroke-width="1.8" stroke-linejoin="round"/>
     <path d="M6,6 L15,13 L11,15 L14,22 L12,23 L9,16 L6,19 Z" fill="%23ffd166"/>
-    <!-- Ruby Gem Inset -->
     <circle cx="10" cy="11" r="1.8" fill="%23e63946"/>
   </g>
 </svg>`;
 
-// 2. Gold Mining Pickaxe Cursor (⛏️)
+// 2. Gold Mining Pickaxe Cursor with Interlocking Golden Chain (⛏️ + 🔗)
 const CURSOR_MINE = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="%23000000" flood-opacity="0.8"/>
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="%23000000" flood-opacity="0.85"/>
     </filter>
   </defs>
   <g filter="url(%23shadow)">
@@ -32,15 +30,18 @@ const CURSOR_MINE = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/
     <line x1="16" y1="13" x2="5" y2="28" stroke="%238b5a2b" stroke-width="3" stroke-linecap="round"/>
     <!-- Gold Nugget Sparkles -->
     <polygon points="27,10 29,6 31,10 35,12 31,14 29,18 27,14 23,12" fill="%23ffd166" stroke="%23e76f51" stroke-width="0.8"/>
-    <circle cx="31" cy="22" r="2.2" fill="%23ffd166" stroke="%23e76f51" stroke-width="0.8"/>
+    
+    <!-- Golden Assignment Chain Link -->
+    <rect x="22" y="22" width="10" height="5" rx="2.5" fill="none" stroke="%23ffd166" stroke-width="1.8"/>
+    <rect x="18" y="24" width="10" height="5" rx="2.5" fill="none" stroke="%23f4a261" stroke-width="1.8"/>
   </g>
 </svg>`;
 
-// 3. Woodcutting / Felling Axe Cursor (🪓)
+// 3. Woodcutting / Felling Axe Cursor with Golden Chain (🪓 + 🔗)
 const CURSOR_FELL = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="%23000000" flood-opacity="0.8"/>
+      <feDropShadow dx="1" dy="2" stdDeviation="1.5" flood-color="%23000000" flood-opacity="0.85"/>
     </filter>
   </defs>
   <g filter="url(%23shadow)">
@@ -49,8 +50,11 @@ const CURSOR_FELL = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/
     <!-- Axe Blade -->
     <path d="M15,10 C18,5 26,6 29,12 C25,16 18,17 14,14 Z" fill="%23adb5bd" stroke="%23212529" stroke-width="1.6"/>
     <path d="M25,8 C27,10 27,12 26,14" stroke="%237fd48f" stroke-width="1.2"/>
-    <!-- Pine Leaf Accent -->
-    <path d="M26,20 L30,16 L28,22 L32,20 L27,27 Z" fill="%232d6a4f" stroke="%231b4332" stroke-width="0.8"/>
+    <!-- Pine Branch -->
+    <path d="M26,18 L30,15 L28,20 L32,19 L28,24 Z" fill="%232d6a4f" stroke="%231b4332" stroke-width="0.8"/>
+    <!-- Golden Assignment Chain Link -->
+    <rect x="22" y="24" width="10" height="5" rx="2.5" fill="none" stroke="%23ffd166" stroke-width="1.8"/>
+    <rect x="18" y="26" width="10" height="5" rx="2.5" fill="none" stroke="%23f4a261" stroke-width="1.8"/>
   </g>
 </svg>`;
 
@@ -67,6 +71,8 @@ const CURSOR_HARVEST = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/20
     <line x1="8" y1="20" x2="4" y2="28" stroke="%238b5a2b" stroke-width="3" stroke-linecap="round"/>
     <!-- Wheat Stalk -->
     <path d="M20,18 Q25,16 28,11 M22,15 Q27,12 30,8 M24,19 Q29,17 31,14" stroke="%23e9c46a" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- Chain Link -->
+    <rect x="22" y="23" width="9" height="4.5" rx="2.2" fill="none" stroke="%23ffd166" stroke-width="1.6"/>
   </g>
 </svg>`;
 
@@ -140,31 +146,71 @@ const CURSOR_SELECT = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/200
   </g>
 </svg>`;
 
-export const CURSORS = {
-  default: `url("${CURSOR_DEFAULT}") 4 4, auto`,
-  mine: `url("${CURSOR_MINE}") 12 12, crosshair`,
-  fell: `url("${CURSOR_FELL}") 12 12, crosshair`,
-  harvest: `url("${CURSOR_HARVEST}") 12 12, crosshair`,
-  build: `url("${CURSOR_BUILD}") 12 12, crosshair`,
-  attack: `url("${CURSOR_ATTACK}") 16 16, crosshair`,
-  move: `url("${CURSOR_MOVE}") 16 16, pointer`,
-  select: `url("${CURSOR_SELECT}") 12 12, pointer`,
-};
-
 export class CursorManager {
   /**
-   * @param {HTMLElement} domElement 
+   * @param {HTMLElement} targetElement 
    */
-  constructor(domElement) {
-    this.dom = domElement;
+  constructor(targetElement = document.body) {
+    this.target = targetElement;
     this.currentMode = "default";
     this.setCursor("default");
   }
 
+  /**
+   * Sets the contextual cursor type.
+   * @param {'default'|'mine'|'fell'|'harvest'|'build'|'attack'|'move'|'select'} mode 
+   */
   setCursor(mode) {
     if (this.currentMode === mode) return;
     this.currentMode = mode;
-    const style = CURSORS[mode] || CURSORS.default;
-    this.dom.style.cursor = style;
+
+    let url = CURSOR_DEFAULT;
+    let hotX = 4;
+    let hotY = 4;
+
+    switch (mode) {
+      case "mine":
+        url = CURSOR_MINE;
+        hotX = 14;
+        hotY = 8;
+        break;
+      case "fell":
+        url = CURSOR_FELL;
+        hotX = 16;
+        hotY = 8;
+        break;
+      case "harvest":
+        url = CURSOR_HARVEST;
+        hotX = 10;
+        hotY = 10;
+        break;
+      case "build":
+        url = CURSOR_BUILD;
+        hotX = 14;
+        hotY = 14;
+        break;
+      case "attack":
+        url = CURSOR_ATTACK;
+        hotX = 16;
+        hotY = 16;
+        break;
+      case "move":
+        url = CURSOR_MOVE;
+        hotX = 16;
+        hotY = 16;
+        break;
+      case "select":
+        url = CURSOR_SELECT;
+        hotX = 14;
+        hotY = 6;
+        break;
+      default:
+        url = CURSOR_DEFAULT;
+        hotX = 4;
+        hotY = 4;
+        break;
+    }
+
+    this.target.style.cursor = `url("${url}") ${hotX} ${hotY}, auto`;
   }
 }
