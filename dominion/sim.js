@@ -1810,12 +1810,17 @@ function buildCrucible(grid, random, { blob, patch, region }) {
   const midX = Math.floor(W / 2);
   const midY = Math.floor(H / 2);
 
-  // 1. High Outer Volcanic Caldera Ring Ridge (Elevated Sheer Mountain Cliffs)
-  for (let angle = 0; angle < Math.PI * 2; angle += 0.08) {
-    const rx = Math.floor(midX + Math.cos(angle) * (W * 0.44));
-    const ry = Math.floor(midY + Math.sin(angle) * (H * 0.44));
+  // 1. High Outer Volcanic Caldera Ring Ridge (Impassable Sheer Mountain Cliffs)
+  // Drawn with 4 wide canyon entrance gateways at cardinal points
+  for (let angle = 0; angle < Math.PI * 2; angle += 0.05) {
+    // Leave 4 canyon pass openings at 0, PI/2, PI, 3PI/2
+    const nearPass = [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].some(a => Math.abs(angle - a) < 0.18);
+    if (nearPass) continue;
+
+    const rx = Math.floor(midX + Math.cos(angle) * (W * 0.45));
+    const ry = Math.floor(midY + Math.sin(angle) * (H * 0.45));
     if (rx >= 0 && rx < W && ry >= 0 && ry < H) {
-      blob(rx, ry, 5, ROCK);
+      blob(rx, ry, 4, ROCK);
     }
   }
 
@@ -1825,52 +1830,67 @@ function buildCrucible(grid, random, { blob, patch, region }) {
   blob(32, 112, 10, HILL);
   blob(112, 112, 10, HILL);
 
-  // 3. Central Sunken Valley Basin with River Cross Channels
-  for (let t = 0; t < H; t++) {
-    const rx = Math.floor(midX + Math.sin(t * 0.1) * 4);
-    if ((t < midY - 14 || t > midY + 14) && rx >= 0 && rx < W) {
-      blob(rx, t, (t > 24 && t < H - 24) ? 2 : 3, WATER);
+  // 3. Central Sunken Valley Basin with Glacial River Cross & Wide Fords
+  // Wide open fords at mid-spans ensure all 4 sectors are fully walkable and connected
+  for (let t = 20; t < H - 20; t++) {
+    // River has wide walkable fords at y: 36-48, 62-82 (center), and 96-108
+    const inFord = (t >= 36 && t <= 48) || (t >= midY - 10 && t <= midY + 10) || (t >= 96 && t <= 108);
+    if (inFord) continue;
+
+    const rx = Math.floor(midX + Math.sin(t * 0.12) * 3);
+    if (rx >= 0 && rx < W) {
+      blob(rx, t, 1, WATER);
     }
   }
-  for (let t = 0; t < W; t++) {
-    const ry = Math.floor(midY + Math.cos(t * 0.1) * 4);
-    if ((t < midX - 14 || t > midX + 14) && ry >= 0 && ry < H) {
-      blob(t, ry, (t > 24 && t < W - 24) ? 2 : 3, WATER);
+
+  for (let t = 20; t < W - 20; t++) {
+    const inFord = (t >= 36 && t <= 48) || (t >= midX - 10 && t <= midX + 10) || (t >= 96 && t <= 108);
+    if (inFord) continue;
+
+    const ry = Math.floor(midY + Math.cos(t * 0.12) * 3);
+    if (ry >= 0 && ry < H) {
+      blob(t, ry, 1, WATER);
     }
   }
 
   // 4. Central Contested Citadel Island (Raised Monolith Mesa)
-  blob(midX, midY, 11, ROCK);
-  blob(midX, midY, 6, HILL);
+  blob(midX, midY, 8, HILL);
+  blob(midX - 14, midY, 4, ROCK);
+  blob(midX + 14, midY, 4, ROCK);
 
-  // 5. Rich Gold Veins in the Sunken Caldera & Mesa Ramps
-  blob(18, 28, 3, GOLD);
-  blob(28, 18, 3, GOLD);
-  blob(126, 28, 3, GOLD);
-  blob(116, 18, 3, GOLD);
-  blob(18, 116, 3, GOLD);
-  blob(28, 126, 3, GOLD);
-  blob(126, 116, 3, GOLD);
-  blob(116, 126, 3, GOLD);
+  // 5. Home Woods for all 4 starting bases (ensuring ample timber within 20 tiles)
+  for (const [sx, sy] of [[18, 18], [122, 18], [18, 122], [122, 122]]) {
+    const dx = sx < midX ? 12 : -12;
+    const dy = sy < midY ? 12 : -12;
+    blob(sx + dx, sy, 4, FOREST);
+    blob(sx, sy + dy, 4, FOREST);
+    blob(sx + dx, sy + dy, 3, FOREST);
+  }
+
+  // Lowland Woods
+  blob(midX - 22, midY - 22, 5, FOREST);
+  blob(midX + 22, midY - 22, 5, FOREST);
+  blob(midX - 22, midY + 22, 5, FOREST);
+  blob(midX + 22, midY + 22, 5, FOREST);
+
+  // 6. Gold Deposits
+  // Safe Home Gold Seams for all 4 seats
+  for (const [sx, sy] of [[18, 18], [122, 18], [18, 122], [122, 122]]) {
+    const dx = sx < midX ? 9 : -9;
+    const dy = sy < midY ? 9 : -9;
+    blob(sx + dx, sy, 2, GOLD);
+    blob(sx, sy + dy, 2, GOLD);
+    blob(sx + dx * 2, sy + dy, 2, GOLD);
+  }
 
   // Contested Sunken Lowland Gold Seams
-  blob(midX - 18, midY - 18, 4, GOLD);
-  blob(midX + 18, midY - 18, 4, GOLD);
-  blob(midX - 18, midY + 18, 4, GOLD);
-  blob(midX + 18, midY + 18, 4, GOLD);
-  blob(midX, midY, 4, GOLD); // The Central Monolith Core
+  blob(midX - 16, midY - 16, 3, GOLD);
+  blob(midX + 16, midY - 16, 3, GOLD);
+  blob(midX - 16, midY + 16, 3, GOLD);
+  blob(midX + 16, midY + 16, 3, GOLD);
+  blob(midX, midY, 3, GOLD); // The Central Monolith Core
 
-  // 6. Lush Alpine Forest Groves in the Lowlands
-  blob(midX - 28, midY, 7, FOREST);
-  blob(midX + 28, midY, 7, FOREST);
-  blob(midX, midY - 28, 7, FOREST);
-  blob(midX, midY + 28, 7, FOREST);
-  blob(44, 44, 6, FOREST);
-  blob(100, 44, 6, FOREST);
-  blob(44, 100, 6, FOREST);
-  blob(100, 100, 6, FOREST);
-
-  // Clear 7x7 flat start pads around the 4 bases
+  // 7. Clear 7x7 flat start pads around the 4 bases
   for (const [sx, sy] of [[18, 18], [122, 18], [18, 122], [122, 122]]) {
     blob(sx + 1, sy + 1, 7, GROUND);
   }
