@@ -665,6 +665,23 @@ class Swarajya3DApp {
     const pt = this._getGroundIntersection(e);
     if (!pt) return;
 
+    const targetTileX = Math.floor(pt.x / TILE);
+    const targetTileY = Math.floor(pt.z / TILE);
+
+    // 1. If any owned buildings are selected, right-click sets their Rally Point!
+    const selBuildings = this.sim.buildings.filter(b => this.selection.has(b.id) && b.owner === this.localPlayer);
+    if (selBuildings.length > 0) {
+      for (const b of selBuildings) {
+        this._dispatchCommand(cmd.rally(b.id, targetTileX, targetTileY));
+      }
+      this.loreAudio.playWarDrum(75, 0.5);
+      const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
+      this.vfx.spawnDebris(pt.x, elev, pt.z, 8, 0xffd166);
+      this._updateContextualHUD();
+      return;
+    }
+
+    // 2. Unit Attack & Movement Orders
     const unitIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id));
     if (unitIds.length === 0) return;
 
@@ -699,8 +716,6 @@ class Swarajya3DApp {
       }
     }
 
-    const targetTileX = Math.floor(pt.x / TILE);
-    const targetTileY = Math.floor(pt.z / TILE);
     this._dispatchCommand(cmd.order(unitIds, targetTileX, targetTileY));
     this.loreAudio.playWarDrum(75, 0.4);
   }
@@ -821,6 +836,7 @@ class Swarajya3DApp {
 
       this.renderer.render(this.scene, this.camera);
 
+      this._updateSelectionInfoOnly();
       this._updateTopHUD();
       this._checkEndState();
 
@@ -859,12 +875,11 @@ class Swarajya3DApp {
     }
   }
 
-  _updateContextualHUD() {
-    const actionBar = document.getElementById("action-bar");
+  _updateSelectionInfoOnly() {
     const infoCard = document.getElementById("selection-info");
+    if (!infoCard) return;
 
     if (this.selection.size === 0) {
-      actionBar.style.display = "none";
       infoCard.style.display = "none";
       return;
     }
@@ -876,25 +891,86 @@ class Swarajya3DApp {
     if (selUnits.length === 1) {
       const u = selUnits[0];
       const hpPct = Math.round((u.hp / u.maxHp) * 100);
+      let carryHtml = "";
+      if (u.spec.worker && u.carrying > 0) {
+        const sym = u.carryKind === "gold" ? "🟡" : u.carryKind === "timber" ? "🌲" : "🌾";
+        carryHtml = `<div style="font-size:11px; color:#ffd166; margin-top:2px;">Carrying: ${sym} ${u.carrying} ${u.carryKind}</div>`;
+      }
       infoCard.innerHTML = `
         <div class="sel-title">${u.spec.name}</div>
         <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
         <div class="sel-stats">HP: ${Math.round(u.hp)} / ${u.maxHp} | Dmg: ${u.spec.damage || 0}</div>
+        ${carryHtml}
       `;
       infoCard.style.display = "block";
     } else if (selBuildings.length === 1) {
       const b = selBuildings[0];
       const hpPct = Math.round((b.hp / b.maxHp) * 100);
+
+      let trainingHtml = "";
+      if (b.queue && b.queue.length > 0) {
+        const activeUnitId = b.queue[0];
+        const activeSpec = UNITS[activeUnitId];
+        const totalTicks = activeSpec ? activeSpec.buildTicks : 100;
+        const trainPct = Math.max(0, Math.min(100, Math.round(((totalTicks - (b.buildTimer || 0)) / totalTicks) * 100)));
+        const queueChips = b.queue.map((uId, i) => `
+          <span style="font-size:10px; background:${i === 0 ? '#457b9d' : '#2a3142'}; color:#fff; padding:2px 6px; border-radius:3px; border:1px solid ${i === 0 ? '#ffd166' : '#4b5563'};">
+            ${i === 0 ? '▶ ' : ''}${UNITS[uId]?.name || uId}
+          </span>
+        `).join(" ");
+
+        trainingHtml = `
+          <div style="margin-top:8px; background:#141824; border:1px solid #e09f3e; border-radius:6px; padding:6px 8px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;">
+              <span style="color:#ffd166; font-weight:bold;">⏳ Training: ${activeSpec?.name || activeUnitId}</span>
+              <span style="color:#7fd48f; font-weight:bold;">${trainPct}%</span>
+            </div>
+            <div style="height:7px; background:#1f2430; border-radius:3px; overflow:hidden; margin-bottom:6px; border:1px solid #374151;">
+              <div style="height:100%; width:${trainPct}%; background:linear-gradient(90deg, #f4a261, #ffd166); transition:width 0.1s linear;"></div>
+            </div>
+            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+              <span style="font-size:10px; color:#9ca3af;">Queue (${b.queue.length}):</span>
+              ${queueChips}
+            </div>
+          </div>
+        `;
+      }
+
+      let rallyHtml = "";
+      if (b.owner === this.localPlayer) {
+        if (b.rally) {
+          rallyHtml = `<div style="font-size:10px; color:#ffd166; margin-top:5px;">🚩 Rally Target: [${b.rally.tx}, ${b.rally.ty}] <span style="color:#9ca3af;">(Right-click map to move)</span></div>`;
+        } else {
+          rallyHtml = `<div style="font-size:10px; color:#9ca3af; margin-top:5px;">🚩 Rally: Right-click ground/resource to direct spawn</div>`;
+        }
+      }
+
       infoCard.innerHTML = `
         <div class="sel-title">${b.spec.name}</div>
         <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
         <div class="sel-stats">HP: ${Math.round(b.hp)} / ${b.maxHp}</div>
+        ${trainingHtml}
+        ${rallyHtml}
       `;
       infoCard.style.display = "block";
     } else if (selUnits.length > 1) {
       infoCard.innerHTML = `<div class="sel-title">${selUnits.length} Units Selected</div>`;
       infoCard.style.display = "block";
     }
+  }
+
+  _updateContextualHUD() {
+    const actionBar = document.getElementById("action-bar");
+    this._updateSelectionInfoOnly();
+
+    if (this.selection.size === 0) {
+      if (actionBar) actionBar.style.display = "none";
+      return;
+    }
+
+    const selIds = Array.from(this.selection);
+    const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
+    const selBuildings = this.sim.buildings.filter(b => selIds.includes(b.id));
 
     let actions = [];
 

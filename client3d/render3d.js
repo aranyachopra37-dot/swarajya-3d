@@ -5,6 +5,7 @@
 
 import { TILE } from "../dominion/grid.js";
 import { lutTrig } from "./lut_trig.js";
+import { UNITS } from "../dominion/sim.js";
 
 export const OWNER_COLORS = [
   0xf4a261, // Player 0: Saffron Gold
@@ -31,6 +32,8 @@ export class Render3D {
     this.siteMeshes = new Map();       // siteId -> THREE.Group
     this.projectileMeshes = new Map(); // projKey -> THREE.Mesh
     this.chainLines = new Map();       // unitId -> THREE.Line
+    this.rallyLines = new Map();       // buildingId -> THREE.Line
+    this.rallyFlags = new Map();       // buildingId -> THREE.Group
     
     this.entityGroup = new THREE.Group();
     this.scene.add(this.entityGroup);
@@ -88,6 +91,7 @@ export class Render3D {
     this._renderUnits(sim, alpha, selection);
     this._renderProjectiles(sim, alpha);
     this._renderAssignmentChains(sim, selection);
+    this._renderRallyMarkers(sim, selection);
   }
 
   // --- BUILDINGS -------------------------------------------------------------
@@ -122,6 +126,21 @@ export class Render3D {
         hpBar.scale.set(hpPct, 1, 1);
         hpBar.position.x = -(1 - hpPct) * 8;
         hpBar.parent.visible = selection.has(b.id) || hpPct < 0.98;
+      }
+
+      const trainBar = mesh.getObjectByName("trainBar");
+      const trainFill = mesh.getObjectByName("trainBarFill");
+      if (trainBar && trainFill) {
+        if (b.queue && b.queue.length > 0) {
+          const unitSpec = UNITS[b.queue[0]];
+          const totalTicks = unitSpec ? unitSpec.buildTicks : 100;
+          const trainPct = Math.max(0, Math.min(1, (totalTicks - (b.buildTimer || 0)) / totalTicks));
+          trainFill.scale.set(trainPct, 1, 1);
+          trainFill.position.x = -(1 - trainPct) * 7.7;
+          trainBar.visible = true;
+        } else {
+          trainBar.visible = false;
+        }
       }
     }
 
@@ -365,6 +384,20 @@ export class Render3D {
     hpGroup.add(hpFill);
 
     group.add(hpGroup);
+
+    const trainGroup = new THREE.Group();
+    trainGroup.name = "trainBar";
+    trainGroup.position.set(0, 42, 0);
+    trainGroup.visible = false;
+
+    const trainBg = new THREE.Mesh(new THREE.BoxGeometry(16, 2.0, 0.8), this.materials.healthBg);
+    trainGroup.add(trainBg);
+
+    const trainFill = new THREE.Mesh(new THREE.BoxGeometry(15.4, 1.6, 0.9), this.materials.progressFill);
+    trainFill.name = "trainBarFill";
+    trainGroup.add(trainFill);
+
+    group.add(trainGroup);
     return group;
   }
 
@@ -1074,6 +1107,89 @@ export class Render3D {
       if (!activeKeys.has(key)) {
         this.entityGroup.remove(mesh);
         this.projectileMeshes.delete(key);
+      }
+    }
+  }
+
+  // --- 3D RALLY POINT LINES & GOLDEN LOTUS PENNANTS --------------------------
+
+  _renderRallyMarkers(sim, selection) {
+    const { THREE } = this;
+    const activeBuildingIds = new Set();
+
+    for (const b of sim.buildings) {
+      if (b.rally && selection.has(b.id)) {
+        activeBuildingIds.add(b.id);
+        const tiles = b.spec ? b.spec.tiles : 2;
+        const bx = (b.tx + tiles / 2) * TILE;
+        const bz = (b.ty + tiles / 2) * TILE;
+        const bElev = this.terrain ? this.terrain.getHeight(bx, bz) : 0;
+
+        const rx = (b.rally.tx + 0.5) * TILE;
+        const rz = (b.rally.ty + 0.5) * TILE;
+        const rElev = this.terrain ? this.terrain.getHeight(rx, rz) : 0;
+
+        // 1. Rally Line
+        let line = this.rallyLines.get(b.id);
+        const points = [
+          new THREE.Vector3(bx, bElev + 6, bz),
+          new THREE.Vector3(rx, rElev + 2, rz)
+        ];
+        if (!line) {
+          const geo = new THREE.BufferGeometry().setFromPoints(points);
+          line = new THREE.Line(geo, this.materials.chainLineMat);
+          this.rallyLines.set(b.id, line);
+          this.entityGroup.add(line);
+        } else {
+          line.geometry.setFromPoints(points);
+        }
+
+        // 2. Rally Flag Marker
+        let flag = this.rallyFlags.get(b.id);
+        if (!flag) {
+          flag = new THREE.Group();
+          // Pole
+          const poleGeo = new THREE.CylinderGeometry(0.5, 0.5, 12, 6);
+          poleGeo.translate(0, 6, 0);
+          const poleMesh = new THREE.Mesh(poleGeo, this.materials.iron);
+          flag.add(poleMesh);
+
+          // Pennant
+          const pennantGeo = new THREE.ConeGeometry(4, 6, 3);
+          pennantGeo.rotateZ(Math.PI / 2);
+          pennantGeo.translate(3, 9, 0);
+          const pennantMesh = new THREE.Mesh(pennantGeo, this.materials.ownerMaterials[b.owner] || this.materials.wood);
+          pennantMesh.name = "pennant";
+          flag.add(pennantMesh);
+
+          // Ground Lotus Ring
+          const lotusGeo = new THREE.RingGeometry(2, 6, 12);
+          lotusGeo.rotateX(-Math.PI / 2);
+          const lotusMesh = new THREE.Mesh(lotusGeo, this.materials.selectionRing);
+          flag.add(lotusMesh);
+
+          this.rallyFlags.set(b.id, flag);
+          this.entityGroup.add(flag);
+        }
+
+        flag.position.set(rx, rElev, rz);
+        const pennant = flag.getObjectByName("pennant");
+        if (pennant) {
+          pennant.rotation.y = Math.sin(this.animTime * 6) * 0.4;
+        }
+      }
+    }
+
+    for (const [id, line] of this.rallyLines.entries()) {
+      if (!activeBuildingIds.has(id)) {
+        this.entityGroup.remove(line);
+        this.rallyLines.delete(id);
+      }
+    }
+    for (const [id, flag] of this.rallyFlags.entries()) {
+      if (!activeBuildingIds.has(id)) {
+        this.entityGroup.remove(flag);
+        this.rallyFlags.delete(id);
       }
     }
   }

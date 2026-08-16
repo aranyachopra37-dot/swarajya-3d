@@ -4089,7 +4089,18 @@ function spawnUnit(sim, building, type) {
   if (!spot) return; // walled in; the gold is spent and the unit is not coming
 
   const unit = makeUnit(sim, building.owner, spec, spot.tx, spot.ty);
-  if (building.rally) unit.order = { tx: building.rally.tx, ty: building.rally.ty };
+  if (building.rally) {
+    const job = resolveOrder(sim, unit, building.rally.tx, building.rally.ty);
+    if (job.kind === "move") {
+      unit.order = { tx: building.rally.tx, ty: building.rally.ty };
+    } else if (job.kind === "attack") {
+      unit.chaseId = job.id;
+      unit.order = { tx: building.rally.tx, ty: building.rally.ty };
+    } else {
+      unit.job = job;
+      unit.order = { tx: building.rally.tx, ty: building.rally.ty };
+    }
+  }
   sim.units.push(unit);
   sound(sim, "trained", building.owner);
 }
