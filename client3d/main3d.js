@@ -1,0 +1,736 @@
+// Swarajya 3D Client Entrypoint — Master Edition
+// Single Player vs AI + Online 1v1 Lockstep Multiplayer + Sky3D + Contextual HUD + Fog of War
+
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import {
+  createSim, step, MAPS, TICKS_PER_SECOND,
+  queueBuild, queueTrain, queueOrder, queueAttack, queueForm, canBuild,
+  priceOf, BUILDINGS, UNITS
+} from "../dominion/sim.js";
+import { think, TIERS } from "../dominion/ai.js";
+import { cmd, applyCommand } from "../dominion/net.js";
+import { Terrain3D } from "./terrain3d.js";
+import { RtsCamera3D } from "./camera3d.js";
+import { Render3D } from "./render3d.js";
+import { Sky3D } from "./sky3d.js";
+import { Vfx3D } from "./vfx3d.js";
+import { FogOfWar3D } from "./fog3d.js";
+import { Multiplayer3D } from "./multiplayer3d.js";
+import { FORMATIONS } from "./formations.js";
+import { TILE } from "../dominion/grid.js";
+import { initAudio, playCues, setSfxVolume } from "../src/audio.js";
+import { siegeMusic, pathMusic, endMusic, setMusicVolume } from "../src/music.js";
+
+const TICK_DURATION = 1.0 / TICKS_PER_SECOND; // 50ms per simulation tick
+
+class Swarajya3DApp {
+  constructor() {
+    this.container = document.getElementById("canvas-container");
+    this.selection = new Set();
+    this.localPlayer = 0;
+    this.currentMapId = "trishulPass";
+    this.currentAiTier = 1; // Durgadhyaksha
+    this.fogOfWarEnabled = false;
+    this.placingBuildingType = null;
+    this.audioStarted = false;
+    this.isOnline = false;
+
+    this.dragStart = null;
+    this.isBoxSelecting = false;
+    this.selectBoxEl = document.getElementById("select-box");
+
+    this._initThree();
+    this._initSim(this.currentMapId);
+    this._initInput();
+    this._initMultiplayer();
+    this._initMenuUI();
+    this._initLoop();
+  }
+
+  _initThree() {
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.FogExp2(0x8ecae6, 0.00035);
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.container.appendChild(this.renderer.domElement);
+
+    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 5, 8000);
+
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d405b, 0.85);
+    this.scene.add(hemiLight);
+
+    this.dirLight = new THREE.DirectionalLight(0xfff3b0, 1.45);
+    this.dirLight.position.set(150, 250, 150);
+    this.dirLight.castShadow = true;
+    this.dirLight.shadow.mapSize.width = 2048;
+    this.dirLight.shadow.mapSize.height = 2048;
+    this.dirLight.shadow.camera.near = 10;
+    this.dirLight.shadow.camera.far = 1600;
+    const d = 600;
+    this.dirLight.shadow.camera.left = -d;
+    this.dirLight.shadow.camera.right = d;
+    this.dirLight.shadow.camera.top = d;
+    this.dirLight.shadow.camera.bottom = -d;
+    this.scene.add(this.dirLight);
+
+    // 3D Placement Ghost Box
+    const ghostGeo = new THREE.BoxGeometry(TILE * 2, 8, TILE * 2);
+    this.ghostMaterial = new THREE.MeshStandardMaterial({
+      color: 0x52b788,
+      transparent: true,
+      opacity: 0.6,
+    });
+    this.ghostMesh = new THREE.Mesh(ghostGeo, this.ghostMaterial);
+    this.ghostMesh.visible = false;
+    this.scene.add(this.ghostMesh);
+
+    // Initialize 3D VFX System
+    this.vfx = new Vfx3D(this.scene, this.camera);
+
+    // Initialize Dynamic Sky & Weather System
+    this.sky = new Sky3D(this.scene, this.dirLight, hemiLight, "snow");
+
+    window.addEventListener("resize", () => this._onResize());
+  }
+
+  _initSim(mapId = "trishulPass", seed = 94301, localPlayer = 0) {
+    if (this.terrain && this.terrain.terrainGroup) {
+      this.scene.remove(this.terrain.terrainGroup);
+    }
+    if (this.renderer3D && this.renderer3D.entityGroup) {
+      this.scene.remove(this.renderer3D.entityGroup);
+    }
+
+    this.localPlayer = localPlayer;
+    this.currentMapId = mapId;
+    this.sim = createSim(seed, mapId);
+
+    const map = MAPS[mapId] || MAPS.trishulPass;
+    const worldW = map.w * TILE;
+    const worldH = map.h * TILE;
+
+    this.terrain = new Terrain3D(this.scene, THREE);
+    this.terrain.build(this.sim.grid);
+
+    this.renderer3D = new Render3D(this.scene, THREE, this.terrain);
+    this.rtsCamera = new RtsCamera3D(this.camera, this.renderer.domElement, { width: worldW, height: worldH });
+
+    if (this.sky) {
+      this.sky.setWeather(map.weather || (mapId === "trishulPass" ? "snow" : "clear"));
+    }
+
+    if (!this.fog) {
+      this.fog = new FogOfWar3D(this.scene, map.w, map.h);
+    } else {
+      this.fog.reset(map.w, map.h);
+    }
+    this.fog.enabled = this.fogOfWarEnabled;
+
+    if (this.scene.fog) {
+      this.scene.fog.density = this.fogOfWarEnabled ? 0.0012 : 0.00035;
+    }
+
+    // Focus on starting Manor
+    const localManor = this.sim.buildings.find(b => b.owner === this.localPlayer && b.spec.isHeart);
+    if (localManor) {
+      const mx = (localManor.tx + localManor.spec.tiles / 2) * TILE;
+      const mz = (localManor.ty + localManor.spec.tiles / 2) * TILE;
+      this.rtsCamera.focusOn(mx, mz);
+    }
+  }
+
+  _initMultiplayer() {
+    this.mp = new Multiplayer3D({
+      onStatus: (status, data) => {
+        const statusEl = document.getElementById("mp-status-msg");
+        if (!statusEl) return;
+
+        if (status === "waiting_for_peer") {
+          statusEl.innerHTML = `<span style="color:#7fd48f">Room Created!</span> Share Code: <strong style="font-size:16px; color:#ffd166; letter-spacing:0.1em;">${data.room}</strong><br><span style="font-size:11px; color:#9ca3af;">Waiting for your friend to join...</span>`;
+        } else if (status === "match_ready") {
+          statusEl.innerHTML = `<span style="color:#7fd48f">Player Connected! Starting Match...</span>`;
+        } else if (status === "joining_room") {
+          statusEl.innerHTML = `<span style="color:#ffd166">Joining Room ${data.code}...</span>`;
+        } else if (status === "error") {
+          statusEl.innerHTML = `<span style="color:#ef476f">${data.reason || data.error || "Connection error"}</span>`;
+        } else if (status === "peer_lost") {
+          this.vfx.shake(6.0);
+        }
+      },
+      onMatchStart: (config) => {
+        this.isOnline = true;
+        this.fogOfWarEnabled = config.fogOfWar;
+        this._initSim(config.mapId, config.seed, config.localPlayer);
+        this.mp.initLockstep(this.sim);
+
+        const menuModal = document.getElementById("main-menu-modal");
+        if (menuModal) menuModal.style.display = "none";
+      }
+    });
+  }
+
+  _ensureAudio() {
+    if (!this.audioStarted) {
+      initAudio();
+      try { siegeMusic(); } catch {}
+      this.audioStarted = true;
+    }
+  }
+
+  _initInput() {
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    const dom = this.renderer.domElement;
+
+    window.addEventListener("keydown", (e) => {
+      this._ensureAudio();
+      if (e.key === "." || e.key === "e") {
+        this._selectNextIdlePeasant();
+      } else if (e.key === "Escape") {
+        if (this.placingBuildingType) {
+          this.placingBuildingType = null;
+          this.ghostMesh.visible = false;
+        } else if (this.selection.size > 0) {
+          this.selection.clear();
+          this._updateContextualHUD();
+        } else {
+          this._toggleGameMenu();
+        }
+      }
+    });
+
+    dom.addEventListener("mousemove", (e) => {
+      if (this.placingBuildingType) {
+        const pt = this._getGroundIntersection(e);
+        if (pt) {
+          const spec = BUILDINGS[this.placingBuildingType];
+          const bw = spec ? spec.tiles : 2;
+          const tx = Math.floor(pt.x / TILE);
+          const ty = Math.floor(pt.z / TILE);
+          const check = canBuild(this.sim, this.localPlayer, this.placingBuildingType, tx, ty);
+          const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
+
+          this.ghostMesh.position.set((tx + bw / 2) * TILE, elev + 4, (ty + bw / 2) * TILE);
+          this.ghostMesh.scale.set(bw, 1, bw);
+          this.ghostMaterial.color.setHex(check.ok ? 0x52b788 : 0xe63946);
+          this.ghostMesh.visible = true;
+        }
+      } else if (this.isBoxSelecting && this.dragStart) {
+        const curX = e.clientX;
+        const curY = e.clientY;
+        const left = Math.min(this.dragStart.x, curX);
+        const top = Math.min(this.dragStart.y, curY);
+        const width = Math.abs(curX - this.dragStart.x);
+        const height = Math.abs(curY - this.dragStart.y);
+
+        this.selectBoxEl.style.left = `${left}px`;
+        this.selectBoxEl.style.top = `${top}px`;
+        this.selectBoxEl.style.width = `${width}px`;
+        this.selectBoxEl.style.height = `${height}px`;
+        this.selectBoxEl.style.display = "block";
+      } else {
+        this.ghostMesh.visible = false;
+      }
+    });
+
+    dom.addEventListener("mousedown", (e) => {
+      this._ensureAudio();
+      if (e.button === 0) { // Left Click
+        if (this.placingBuildingType) {
+          this._confirmBuildingPlacement(e);
+        } else {
+          this.dragStart = { x: e.clientX, y: e.clientY };
+          this.isBoxSelecting = true;
+        }
+      } else if (e.button === 2) { // Right Click
+        if (this.placingBuildingType) {
+          this.placingBuildingType = null;
+          this.ghostMesh.visible = false;
+        } else {
+          this._handleRightClick(e);
+        }
+      }
+    });
+
+    window.addEventListener("mouseup", (e) => {
+      if (e.button === 0 && this.isBoxSelecting) {
+        this.isBoxSelecting = false;
+        this.selectBoxEl.style.display = "none";
+
+        if (this.dragStart) {
+          const dx = Math.abs(e.clientX - this.dragStart.x);
+          const dy = Math.abs(e.clientY - this.dragStart.y);
+
+          if (dx > 8 || dy > 8) {
+            this._handleBoxSelect(this.dragStart, { x: e.clientX, y: e.clientY });
+          } else {
+            this._handleLeftClick(e);
+          }
+        }
+        this.dragStart = null;
+      }
+    });
+
+    dom.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  _handleBoxSelect(p1, p2) {
+    const minX = Math.min(p1.x, p2.x);
+    const maxX = Math.max(p1.x, p2.x);
+    const minY = Math.min(p1.y, p2.y);
+    const maxY = Math.max(p1.y, p2.y);
+
+    this.selection.clear();
+
+    for (const u of this.sim.units) {
+      if (u.owner === this.localPlayer) {
+        const elev = this.terrain ? this.terrain.getHeight(u.x, u.y) : 0;
+        const screenPos = this._worldToScreen(u.x, elev, u.y);
+        if (screenPos.x >= minX && screenPos.x <= maxX && screenPos.y >= minY && screenPos.y <= maxY) {
+          this.selection.add(u.id);
+        }
+      }
+    }
+
+    this._updateContextualHUD();
+  }
+
+  _worldToScreen(x, y, z) {
+    const vec = new THREE.Vector3(x, y, z);
+    vec.project(this.camera);
+    return {
+      x: ((vec.x + 1) * window.innerWidth) / 2,
+      y: ((-vec.y + 1) * window.innerHeight) / 2,
+    };
+  }
+
+  _selectNextIdlePeasant() {
+    const idlePeasants = this.sim.units.filter(
+      u => u.owner === this.localPlayer && u.spec.worker && !u.job && !u.order
+    );
+    if (idlePeasants.length > 0) {
+      const p = idlePeasants[0];
+      this.selection.clear();
+      this.selection.add(p.id);
+      this.rtsCamera.focusOn(p.x, p.y);
+      this._updateContextualHUD();
+    }
+  }
+
+  _initMenuUI() {
+    const startBtn = document.getElementById("menu-start-btn");
+    const hostBtn = document.getElementById("menu-host-btn");
+    const joinBtn = document.getElementById("menu-join-btn");
+    const joinCodeInput = document.getElementById("menu-join-code");
+    const menuModal = document.getElementById("main-menu-modal");
+    const openMenuBtn = document.getElementById("open-menu-btn");
+    const fowCheck = document.getElementById("menu-fow-check");
+    const mapSelect = document.getElementById("menu-map-select");
+    const aiSelect = document.getElementById("menu-ai-select");
+    const sfxSlider = document.getElementById("sfx-volume");
+    const musicSlider = document.getElementById("music-volume");
+
+    if (mapSelect) {
+      mapSelect.innerHTML = Object.values(MAPS)
+        .map(m => `<option value="${m.id}" ${m.id === this.currentMapId ? "selected" : ""}>${m.name} (${m.w}x${m.h})</option>`)
+        .join("");
+    }
+
+    if (aiSelect) {
+      aiSelect.innerHTML = TIERS
+        .map((t, idx) => `<option value="${idx}" ${idx === this.currentAiTier ? "selected" : ""}>Tier ${idx}: ${t.name}</option>`)
+        .join("");
+    }
+
+    if (fowCheck) {
+      fowCheck.checked = this.fogOfWarEnabled;
+    }
+
+    // Single Player AI Start
+    if (startBtn) {
+      startBtn.addEventListener("click", () => {
+        this._ensureAudio();
+        this.isOnline = false;
+        this.currentMapId = mapSelect.value;
+        this.currentAiTier = parseInt(aiSelect.value, 10);
+        this.fogOfWarEnabled = fowCheck.checked;
+
+        this._initSim(this.currentMapId, 94301, 0);
+        menuModal.style.display = "none";
+      });
+    }
+
+    // Host Online 1v1 Room
+    if (hostBtn) {
+      hostBtn.addEventListener("click", () => {
+        this._ensureAudio();
+        this.currentMapId = mapSelect.value;
+        this.fogOfWarEnabled = fowCheck.checked;
+        this.mp.hostRoom(this.currentMapId, this.fogOfWarEnabled);
+      });
+    }
+
+    // Join Online 1v1 Room
+    if (joinBtn && joinCodeInput) {
+      joinBtn.addEventListener("click", () => {
+        this._ensureAudio();
+        const code = joinCodeInput.value;
+        if (code) {
+          this.mp.joinRoom(code);
+        }
+      });
+    }
+
+    if (openMenuBtn) {
+      openMenuBtn.addEventListener("click", () => this._toggleGameMenu());
+    }
+
+    if (sfxSlider) {
+      sfxSlider.addEventListener("input", (e) => {
+        setSfxVolume(parseFloat(e.target.value));
+      });
+    }
+
+    if (musicSlider) {
+      musicSlider.addEventListener("input", (e) => {
+        setMusicVolume(parseFloat(e.target.value));
+      });
+    }
+  }
+
+  _toggleGameMenu() {
+    const menuModal = document.getElementById("main-menu-modal");
+    if (!menuModal) return;
+    menuModal.style.display = (menuModal.style.display === "none" || menuModal.style.display === "") ? "flex" : "none";
+  }
+
+  _dispatchCommand(command) {
+    if (this.isOnline && this.mp && this.mp.lockstep) {
+      this.mp.lockstep.issue(command);
+    } else {
+      applyCommand(this.sim, this.localPlayer, command);
+    }
+  }
+
+  _confirmBuildingPlacement(e) {
+    const pt = this._getGroundIntersection(e);
+    if (!pt) return;
+
+    const tx = Math.floor(pt.x / TILE);
+    const ty = Math.floor(pt.z / TILE);
+
+    const check = canBuild(this.sim, this.localPlayer, this.placingBuildingType, tx, ty);
+    if (check.ok) {
+      const peasants = this.sim.units
+        .filter(u => u.owner === this.localPlayer && u.spec.worker)
+        .map(u => u.id);
+
+      this._dispatchCommand(cmd.build(this.placingBuildingType, tx, ty, peasants));
+      const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
+      this.vfx.spawnDebris(pt.x, elev, pt.z, 12, 0xd4a373);
+    }
+
+    this.placingBuildingType = null;
+    this.ghostMesh.visible = false;
+  }
+
+  _getGroundIntersection(e) {
+    this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const target = new THREE.Vector3();
+    return this.raycaster.ray.intersectPlane(this.groundPlane, target) ? target : null;
+  }
+
+  _handleLeftClick(e) {
+    const pt = this._getGroundIntersection(e);
+    if (!pt) return;
+
+    this.selection.clear();
+    const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
+
+    for (const u of this.sim.units) {
+      if (u.owner === this.localPlayer) {
+        const dx = u.x - pt.x;
+        const dz = u.y - pt.z;
+        if (dx * dx + dz * dz <= (u.radius + clickRadius) ** 2) {
+          this.selection.add(u.id);
+          this._updateContextualHUD();
+          return;
+        }
+      }
+    }
+
+    for (const b of this.sim.buildings) {
+      if (b.owner === this.localPlayer) {
+        const bx = (b.tx + b.spec.tiles / 2) * TILE;
+        const bz = (b.ty + b.spec.tiles / 2) * TILE;
+        const half = (b.spec.tiles * TILE) / 2;
+        if (Math.abs(bx - pt.x) <= half + clickRadius && Math.abs(bz - pt.z) <= half + clickRadius) {
+          this.selection.add(b.id);
+          this._updateContextualHUD();
+          return;
+        }
+      }
+    }
+
+    this._updateContextualHUD();
+  }
+
+  _handleRightClick(e) {
+    if (this.selection.size === 0) return;
+    const pt = this._getGroundIntersection(e);
+    if (!pt) return;
+
+    const unitIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id));
+    if (unitIds.length === 0) return;
+
+    const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
+
+    for (const u of this.sim.units) {
+      if (u.owner !== this.localPlayer) {
+        const dx = u.x - pt.x;
+        const dz = u.y - pt.z;
+        if (dx * dx + dz * dz <= (u.radius + clickRadius) ** 2) {
+          this._dispatchCommand(cmd.attack(unitIds, u.id));
+          const elev = this.terrain ? this.terrain.getHeight(u.x, u.y) : 0;
+          this.vfx.spawnDebris(u.x, elev, u.y, 4, 0xef476f);
+          return;
+        }
+      }
+    }
+
+    for (const b of this.sim.buildings) {
+      if (b.owner !== this.localPlayer) {
+        const bx = (b.tx + b.spec.tiles / 2) * TILE;
+        const bz = (b.ty + b.spec.tiles / 2) * TILE;
+        const half = (b.spec.tiles * TILE) / 2;
+        if (Math.abs(bx - pt.x) <= half + clickRadius && Math.abs(bz - pt.z) <= half + clickRadius) {
+          this._dispatchCommand(cmd.attack(unitIds, b.id));
+          const elev = this.terrain ? this.terrain.getHeight(bx, bz) : 0;
+          this.vfx.spawnDebris(bx, elev, bz, 6, 0x8b5a2b);
+          return;
+        }
+      }
+    }
+
+    const targetTileX = Math.floor(pt.x / TILE);
+    const targetTileY = Math.floor(pt.z / TILE);
+    this._dispatchCommand(cmd.order(unitIds, targetTileX, targetTileY));
+  }
+
+  _initLoop() {
+    this.lastTime = performance.now();
+    this.accumulator = 0;
+
+    const loop = (now) => {
+      const dt = Math.min(0.1, (now - this.lastTime) / 1000.0);
+      this.lastTime = now;
+      this.accumulator += dt;
+
+      while (this.accumulator >= TICK_DURATION) {
+        for (const u of this.sim.units) {
+          u.prevX = u.x;
+          u.prevY = u.y;
+        }
+
+        if (this.isOnline && this.mp && this.mp.lockstep) {
+          // Online Lockstep Tick
+          this.mp.lockstep.publish();
+          this.mp.lockstep.tryAdvance(now);
+        } else {
+          // Single Player AI Tick
+          if (!this.sim.over) {
+            for (let seat = 1; seat < this.sim.players.length; seat++) {
+              think(this.sim, seat, this.currentAiTier);
+            }
+          }
+          step(this.sim);
+        }
+
+        if (this.audioStarted && this.sim.sounds && this.sim.sounds.length > 0) {
+          playCues(this.sim.sounds, this.localPlayer);
+          this.sim.sounds.length = 0;
+        }
+
+        const playerPath = this.sim.players[this.localPlayer]?.path;
+        if (playerPath && this.currentPath !== playerPath) {
+          this.currentPath = playerPath;
+          try { pathMusic(playerPath); } catch {}
+        }
+
+        this.accumulator -= TICK_DURATION;
+      }
+
+      const alpha = this.accumulator / TICK_DURATION;
+
+      this.rtsCamera.update(dt);
+      if (this.sky) {
+        this.sky.update(dt, this.rtsCamera.target);
+      }
+      this.vfx.update(dt);
+      this.renderer3D.render(this.sim, alpha, this.selection);
+
+      if (this.fog) {
+        this.fog.update(this.sim, this.localPlayer, this.renderer3D.unitMeshes, this.renderer3D.buildingMeshes);
+      }
+
+      this.renderer.render(this.scene, this.camera);
+
+      this._updateTopHUD();
+      this._checkEndState();
+
+      requestAnimationFrame(loop);
+    };
+
+    requestAnimationFrame(loop);
+  }
+
+  _checkEndState() {
+    if (this.sim.over) {
+      const banner = document.getElementById("victory-banner");
+      if (banner && !banner.classList.contains("visible")) {
+        banner.classList.add("visible");
+        const won = this.sim.winner === this.localPlayer;
+        try { endMusic(won); } catch {}
+        banner.querySelector("h2").textContent = won ? "VICTORY — SWARAJYA CLAIMED" : "DEFEAT — HALL DESTROYED";
+        banner.querySelector("h2").style.color = won ? "#7fd48f" : "#e63946";
+      }
+    }
+  }
+
+  _updateTopHUD() {
+    const p = this.sim.players[this.localPlayer];
+    if (!p) return;
+
+    document.getElementById("hud-gold").textContent = `${Math.floor(p.gold)}`;
+    document.getElementById("hud-timber").textContent = `${Math.floor(p.timber)}`;
+    document.getElementById("hud-food").textContent = `${Math.floor(p.food)} / 2000`;
+    document.getElementById("hud-pop").textContent = `${this.sim.units.filter(u => u.owner === this.localPlayer).length} / 240`;
+
+    if (this.sky) {
+      const timeEl = document.getElementById("hud-time");
+      if (timeEl) timeEl.textContent = this.sky.getTimeFormatted();
+    }
+  }
+
+  _updateContextualHUD() {
+    const actionBar = document.getElementById("action-bar");
+    const infoCard = document.getElementById("selection-info");
+
+    if (this.selection.size === 0) {
+      actionBar.style.display = "none";
+      infoCard.style.display = "none";
+      return;
+    }
+
+    const selIds = Array.from(this.selection);
+    const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
+    const selBuildings = this.sim.buildings.filter(b => selIds.includes(b.id));
+
+    if (selUnits.length === 1) {
+      const u = selUnits[0];
+      const hpPct = Math.round((u.hp / u.maxHp) * 100);
+      infoCard.innerHTML = `
+        <div class="sel-title">${u.spec.name}</div>
+        <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
+        <div class="sel-stats">HP: ${Math.round(u.hp)} / ${u.maxHp} | Dmg: ${u.spec.damage || 0}</div>
+      `;
+      infoCard.style.display = "block";
+    } else if (selBuildings.length === 1) {
+      const b = selBuildings[0];
+      const hpPct = Math.round((b.hp / b.maxHp) * 100);
+      infoCard.innerHTML = `
+        <div class="sel-title">${b.spec.name}</div>
+        <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
+        <div class="sel-stats">HP: ${Math.round(b.hp)} / ${b.maxHp}</div>
+      `;
+      infoCard.style.display = "block";
+    } else if (selUnits.length > 1) {
+      infoCard.innerHTML = `<div class="sel-title">${selUnits.length} Units Selected</div>`;
+      infoCard.style.display = "block";
+    }
+
+    let actions = [];
+
+    const hasWorker = selUnits.some(u => u.spec.worker);
+    const manor = selBuildings.find(b => b.spec.isHeart);
+    const barracks = selBuildings.find(b => b.spec.id === "barracks");
+    const factory = selBuildings.find(b => b.spec.id === "factory");
+
+    if (hasWorker) {
+      actions = [
+        { id: "build_farm", label: "Kshetra (Farm)", cost: "40g 30w", desc: "Grows grain" },
+        { id: "build_warehouse", label: "Kosha (Warehouse)", cost: "60g 50w", desc: "Storehouse" },
+        { id: "build_barracks", label: "Akhara (Barracks)", cost: "120g 90w", desc: "Martial training" },
+        { id: "build_bastion", label: "Shira Durg (Bastion)", cost: "200g 200w", desc: "Purusha Path" },
+        { id: "build_lair", label: "Mantra Shala (Lair)", cost: "360g 180w", desc: "Shakti Path" },
+        { id: "build_factory", label: "Asthi Shala (Factory)", cost: "190g 160w", desc: "Abheda Path" },
+      ];
+    } else if (manor) {
+      actions = [
+        { id: "train_peasant", label: "Praja (Peasant)", cost: "50g", desc: "Worker" },
+      ];
+    } else if (barracks) {
+      actions = [
+        { id: "train_spearman", label: "Shulin (Spearman)", cost: "70g 10f", desc: "Frontline spear" },
+        { id: "train_archer", label: "Dhanurdhara (Archer)", cost: "80g 15w 10f", desc: "Ranged archer" },
+      ];
+    } else if (factory) {
+      actions = [
+        { id: "train_catapult", label: "Shila Yantra (Catapult)", cost: "180g 150w", desc: "Siege engine" },
+        { id: "train_ram", label: "Dwaraghna (Ram)", cost: "140g 120w", desc: "Gate ram" },
+      ];
+    } else if (selUnits.length > 1) {
+      actions = [
+        { id: "form_line", label: "Pankti (Line)", cost: "⚔️", desc: "Broad front" },
+        { id: "form_wedge", label: "Garuda (Wedge)", cost: "⚡", desc: "Breaching charge" },
+        { id: "form_square", label: "Vajra (Square)", cost: "🛡️", desc: "360 defense" },
+      ];
+    }
+
+    if (actions.length > 0) {
+      actionBar.innerHTML = actions.map(a => `
+        <button class="action-btn" data-action="${a.id}" title="${a.desc}">
+          <span class="btn-label">${a.label}</span>
+          <span class="btn-cost">${a.cost}</span>
+        </button>
+      `).join("");
+      actionBar.style.display = "flex";
+
+      actionBar.onclick = (e) => {
+        const btn = e.target.closest(".action-btn");
+        if (!btn) return;
+        const act = btn.dataset.action;
+
+        if (act === "train_peasant" && manor) {
+          this._dispatchCommand(cmd.train(manor.id, "peasant"));
+        } else if (act === "train_spearman" && barracks) {
+          this._dispatchCommand(cmd.train(barracks.id, "spearman"));
+        } else if (act === "train_archer" && barracks) {
+          this._dispatchCommand(cmd.train(barracks.id, "archer"));
+        } else if (act.startsWith("build_")) {
+          this.placingBuildingType = act.replace("build_", "");
+        }
+      };
+    } else {
+      actionBar.style.display = "none";
+    }
+  }
+
+  _onResize() {
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  window.app3D = new Swarajya3DApp();
+});

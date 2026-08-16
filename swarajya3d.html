@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarajya 3D — The Himalayan Trial</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #0b0d13;
+      color: #c8ccd8;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    /* Drag Selection Box */
+    #select-box {
+      position: absolute;
+      border: 1px solid #7fd48f;
+      background: rgba(127, 212, 143, 0.18);
+      pointer-events: none;
+      z-index: 20;
+      display: none;
+    }
+    /* Top Header Bar */
+    #top-bar {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      background: rgba(15, 18, 26, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 8px 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      font-size: 13px;
+    }
+    .res-group { display: flex; gap: 16px; align-items: center; }
+    .res-item { display: flex; align-items: center; gap: 6px; }
+    .res-gold { color: #f4a261; font-weight: bold; }
+    .res-timber { color: #8cb369; font-weight: bold; }
+    .res-food { color: #e9c46a; font-weight: bold; }
+    .res-pop { color: #457b9d; font-weight: bold; }
+    .hud-time-tag { color: #ffd166; font-weight: 600; font-size: 12px; border-left: 1px solid #374151; padding-left: 14px; }
+
+    .header-btn {
+      background: #1f2430;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .header-btn:hover {
+      background: #2b3140;
+      border-color: #7fd48f;
+      color: #7fd48f;
+    }
+
+    /* Minimalist Army Roster */
+    #army-roster-panel {
+      position: absolute;
+      top: 70px;
+      right: 16px;
+      z-index: 10;
+      width: 200px;
+      background: rgba(18, 22, 31, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 8px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    #army-roster-panel h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #d4a373;
+      margin-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 3px;
+    }
+    .roster-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 2px 0;
+      color: #d1d5db;
+    }
+    .roster-item .type-name { text-transform: capitalize; color: #9ca3af; }
+    .roster-item .count { font-weight: bold; color: #f3f4f6; }
+    .roster-empty { font-size: 11px; color: #6b7280; font-style: italic; }
+
+    /* Contextual Selection Card Panel */
+    #selection-info {
+      position: absolute;
+      bottom: 96px;
+      left: 16px;
+      z-index: 10;
+      width: 230px;
+      background: rgba(18, 22, 31, 0.92);
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 12px 14px;
+      backdrop-filter: blur(8px);
+      display: none;
+    }
+    .sel-title { font-size: 13px; font-weight: bold; color: #f3f4f6; margin-bottom: 6px; }
+    .sel-bar { width: 100%; height: 6px; background: #374151; border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+    .sel-fill { height: 100%; background: #52b788; transition: width 0.1s ease; }
+    .sel-stats { font-size: 11px; color: #9ca3af; }
+
+    /* Contextual Bottom Action Bar */
+    #action-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: none;
+      gap: 8px;
+      background: rgba(15, 18, 26, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
+      max-width: 95vw;
+      overflow-x: auto;
+    }
+    .action-btn {
+      font: inherit;
+      background: #202532;
+      border: 1px solid #363e4f;
+      color: #c8ccd8;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      transition: all 0.15s ease;
+      min-width: 105px;
+    }
+    .action-btn:hover {
+      background: #2b3242;
+      border-color: #7fd48f;
+      transform: translateY(-2px);
+    }
+    .action-btn .btn-label { font-size: 11px; font-weight: 600; color: #e5e7eb; }
+    .action-btn .btn-cost { font-size: 10px; color: #e8c877; }
+
+    /* Minimal Controls Hint */
+    #controls-help {
+      position: absolute;
+      bottom: 20px;
+      left: 16px;
+      z-index: 10;
+      font-size: 11px;
+      color: #8892b0;
+      background: rgba(15, 18, 26, 0.82);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      line-height: 1.4;
+    }
+
+    /* Main Menu Modal with Tabs */
+    #main-menu-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(8, 10, 15, 0.88);
+      backdrop-filter: blur(16px);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .menu-card {
+      background: rgba(18, 22, 32, 0.96);
+      border: 1px solid #394358;
+      border-radius: 12px;
+      padding: 28px 36px;
+      width: 520px;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.9);
+      text-align: center;
+    }
+    .menu-card h1 {
+      font-size: 26px;
+      letter-spacing: 0.15em;
+      color: #f4a261;
+      margin-bottom: 4px;
+    }
+    .menu-subtitle {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 18px;
+    }
+
+    /* Tab Switcher */
+    .menu-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #2b3140;
+      padding-bottom: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 0;
+      background: #151923;
+      border: 1px solid #2b3140;
+      border-radius: 6px;
+      color: #9ca3af;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tab-btn.active {
+      background: #2b3140;
+      color: #ffd166;
+      border-color: #ffd166;
+    }
+
+    .menu-panel { display: none; }
+    .menu-panel.active { display: block; }
+
+    .menu-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      text-align: left;
+      font-size: 13px;
+    }
+    .menu-row label { color: #d1d5db; }
+    .menu-select, .menu-input {
+      background: #141822;
+      color: #f3f4f6;
+      border: 1px solid #3b4252;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      width: 230px;
+    }
+    .menu-input { text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold; }
+    .menu-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .menu-toggle input { cursor: pointer; accent-color: #7fd48f; }
+    .menu-slider { width: 160px; accent-color: #f4a261; cursor: pointer; }
+
+    .menu-btn-primary {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px 0;
+      background: #f4a261;
+      color: #0f1117;
+      font-weight: bold;
+      font-size: 13px;
+      letter-spacing: 0.05em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .menu-btn-primary:hover {
+      background: #e76f51;
+      transform: translateY(-2px);
+    }
+    .menu-btn-secondary {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px 0;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 11px;
+      border: 1px solid #2b3140;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .menu-btn-secondary:hover { color: #e5e7eb; border-color: #4b5563; }
+
+    #mp-status-msg {
+      margin-top: 12px;
+      font-size: 12px;
+      min-height: 38px;
+      line-height: 1.4;
+    }
+
+    /* Victory / Defeat Modal */
+    #victory-banner {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      background: rgba(15, 17, 23, 0.96);
+      border: 2px solid #e8c877;
+      border-radius: 12px;
+      padding: 28px 48px;
+      text-align: center;
+      box-shadow: 0 8px 36px rgba(0, 0, 0, 0.85);
+      display: none;
+    }
+    #victory-banner.visible { display: block; animation: popIn 0.3s ease; }
+    #victory-banner h2 { font-size: 24px; margin-bottom: 12px; letter-spacing: 0.1em; }
+    #victory-banner button {
+      margin-top: 16px;
+      padding: 8px 24px;
+      background: #e8c877;
+      border: none;
+      color: #14161c;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    @keyframes popIn {
+      from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; }
+      to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="select-box"></div>
+
+  <!-- Top Header Bar with Economics, Time, and Menu Toggle -->
+  <div id="top-bar">
+    <div class="res-group">
+      <div class="res-item">🪙 <span class="res-gold" id="hud-gold">0</span></div>
+      <div class="res-item">🌲 <span class="res-timber" id="hud-timber">0</span></div>
+      <div class="res-item">🌾 <span class="res-food" id="hud-food">0 / 2000</span></div>
+      <div class="res-item">👥 <span class="res-pop" id="hud-pop">0 / 240</span></div>
+    </div>
+    <div class="hud-time-tag" id="hud-time">8:00 AM ☀️</div>
+    <button id="open-menu-btn" class="header-btn" title="Open Game Menu [Esc]">⚙️ Settings & Map</button>
+  </div>
+
+  <!-- Army Roster Panel -->
+  <div id="army-roster-panel">
+    <h3>Army Roster</h3>
+    <div id="army-roster">
+      <div class="roster-empty">No standing units</div>
+    </div>
+  </div>
+
+  <!-- Contextual Unit / Building Selection Card -->
+  <div id="selection-info"></div>
+
+  <!-- Contextual Bottom Command & Building Bar -->
+  <div id="action-bar"></div>
+
+  <!-- Minimal Controls Legend -->
+  <div id="controls-help">
+    • <strong>Drag-Box / Right-Click</strong>: Move & Attack<br>
+    • <strong>WASD / Orbit / Zoom</strong>: Camera • <strong>[E]</strong>: Idle Peasant • <strong>[Esc]</strong>: Menu
+  </div>
+
+  <!-- Main Game & Match Setup Menu with Online 1v1 -->
+  <div id="main-menu-modal">
+    <div class="menu-card">
+      <h1>SWARAJYA</h1>
+      <div class="menu-subtitle">The Himalayan Trial of Indra • Kaulantak Peeth</div>
+
+      <!-- Mode Tabs -->
+      <div class="menu-tabs">
+        <button id="tab-sp-btn" class="tab-btn active" onclick="switchTab('sp')">🤖 Single Player vs AI</button>
+        <button id="tab-mp-btn" class="tab-btn" onclick="switchTab('mp')">🌐 Online 1v1 Match</button>
+      </div>
+
+      <!-- Shared Settings -->
+      <div class="menu-row">
+        <label>Battleground Map</label>
+        <select id="menu-map-select" class="menu-select"></select>
+      </div>
+
+      <div class="menu-row">
+        <label>Fog of War (Mountain Mist)</label>
+        <label class="menu-toggle">
+          <input type="checkbox" id="menu-fow-check">
+          <span style="font-size:12px; color:#9ca3af;">Enable</span>
+        </label>
+      </div>
+
+      <!-- Single Player Panel -->
+      <div id="panel-sp" class="menu-panel active">
+        <div class="menu-row">
+          <label>AI Opponent Tier</label>
+          <select id="menu-ai-select" class="menu-select"></select>
+        </div>
+        <button id="menu-start-btn" class="menu-btn-primary">START SINGLE PLAYER BATTLE</button>
+      </div>
+
+      <!-- Online 1v1 Multiplayer Panel -->
+      <div id="panel-mp" class="menu-panel">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button id="menu-host-btn" class="menu-btn-primary" style="margin-top:0; flex:1;">Host 1v1 Room</button>
+        </div>
+
+        <div style="border-top:1px solid #2b3140; padding-top:12px; margin-top:8px;">
+          <div class="menu-row">
+            <label>Friend's Room Code</label>
+            <input type="text" id="menu-join-code" class="menu-input" placeholder="e.g. KSET9" maxlength="5">
+          </div>
+          <button id="menu-join-btn" class="menu-btn-primary" style="margin-top:4px; background:#457b9d;">Join 1v1 Room</button>
+        </div>
+
+        <div id="mp-status-msg"></div>
+      </div>
+
+      <!-- Audio Settings -->
+      <div style="border-top:1px solid #2b3140; margin-top:16px; padding-top:12px;">
+        <div class="menu-row">
+          <label>Ambient Music</label>
+          <input type="range" id="music-volume" class="menu-slider" min="0" max="1" step="0.05" value="0.8">
+        </div>
+        <div class="menu-row">
+          <label>Tactical SFX</label>
+          <input type="range" id="sfx-volume" class="menu-slider" min="0" max="1" step="0.05" value="0.8">
+        </div>
+      </div>
+
+      <button class="menu-btn-secondary" onclick="window.open('https://siddhapedia.com', '_blank')">Sources & Lore Charter (Siddhapedia)</button>
+    </div>
+  </div>
+
+  <!-- Victory / Defeat Overlay -->
+  <div id="victory-banner">
+    <h2>VICTORY</h2>
+    <p>The enemy hall has fallen.</p>
+    <button onclick="location.reload()">Play Again</button>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('tab-sp-btn').classList.toggle('active', tab === 'sp');
+      document.getElementById('tab-mp-btn').classList.toggle('active', tab === 'mp');
+      document.getElementById('panel-sp').classList.toggle('active', tab === 'sp');
+      document.getElementById('panel-mp').classList.toggle('active', tab === 'mp');
+    }
+  </script>
+
+  <!-- App Entry -->
+  <script type="module" src="./client3d/main3d.js"></script>
+</body>
+</html>
