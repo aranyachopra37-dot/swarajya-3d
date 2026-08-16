@@ -424,6 +424,7 @@
       <div class="res-item"><span class="res-pop">👥</span> <span id="hud-pop">0 / 240</span></div>
     </div>
     <div class="hud-time-tag" id="hud-time">08:00 AM</div>
+    <button class="header-btn" id="open-docs-btn" onclick="window.open('docs.html', '_blank')">📜 Docs</button>
     <button class="header-btn" id="open-dip-btn">🤝 Diplomacy [P]</button>
     <button class="header-btn" id="open-menu-btn">⚙️ Settings & Map</button>
   </div>
@@ -511,6 +512,12 @@
 
       <!-- How to Play Panel -->
       <div id="panel-help" class="menu-panel">
+        <div class="guide-box" style="background: rgba(244,162,97,0.12); border-color:#f4a261; text-align:center; padding:10px;">
+          <a href="docs.html" target="_blank" style="color:#ffd166; font-family:'Cinzel',serif; font-size:12px; font-weight:bold; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+            📜 <span>Open Complete Documentation & Wiki (Units, Buildings, Tech Tree)</span> ➔
+          </a>
+        </div>
+
         <div class="guide-box">
           <div class="guide-title">🏰 Economy & Resources</div>
           <ul>
@@ -564,7 +571,10 @@
         </div>
       </div>
 
-      <button class="menu-btn-secondary" onclick="window.open('https://siddhapedia.com', '_blank')">Sources & Lore Charter (Siddhapedia)</button>
+      <div style="display:flex; justify-content:center; gap:16px; margin-top:14px;">
+        <button class="menu-btn-secondary" style="margin-top:0; color:#ffd166; font-weight:bold;" onclick="window.open('docs.html', '_blank')">📜 Game Docs & Wiki</button>
+        <button class="menu-btn-secondary" style="margin-top:0;" onclick="window.open('https://siddhapedia.com', '_blank')">Sources & Lore (Siddhapedia)</button>
+      </div>
     </div>
   </div>
 

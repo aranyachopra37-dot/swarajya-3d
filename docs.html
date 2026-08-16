@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarajya 3D — Official Game Documentation & Lore Compendium</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;700;800&family=Yatra+One&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #080a10;
+      --panel-bg: rgba(14, 18, 28, 0.92);
+      --card-bg: #121722;
+      --card-border: #2b3346;
+      --gold: #ffd166;
+      --amber: #f4a261;
+      --crimson: #e76f51;
+      --green: #7fd48f;
+      --blue: #38bdf8;
+      --violet: #a78bfa;
+      --text: #c8ccd8;
+      --text-bright: #f3f4f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: 'Fira Code', ui-monospace, monospace;
+      line-height: 1.6;
+      padding-top: 70px;
+    }
+
+    /* Top Sticky Navigation Bar */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 70px;
+      background: rgba(8, 10, 16, 0.95);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(244, 162, 97, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 32px;
+      z-index: 1000;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.8);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .nav-mandala {
+      width: 38px;
+      height: 38px;
+      animation: spin 30s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    .nav-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 0.12em;
+    }
+    .nav-tag {
+      font-size: 11px;
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      border: 1px solid rgba(244,162,97,0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .nav-link {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      transition: color 0.15s ease;
+    }
+    .nav-link:hover { color: var(--gold); }
+    .play-btn {
+      background: linear-gradient(135deg, #f4a261 0%, #e76f51 100%);
+      color: #0b0d13;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: 900;
+      font-size: 12px;
+      text-decoration: none;
+      letter-spacing: 0.08em;
+      box-shadow: 0 0 16px rgba(231,111,81,0.4);
+      transition: all 0.15s ease;
+    }
+    .play-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 24px rgba(231,111,81,0.7);
+    }
+
+    /* Layout */
+    .docs-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 40px;
+      padding: 40px 24px 80px;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      position: sticky;
+      top: 100px;
+      height: fit-content;
+      background: var(--panel-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 20px 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .sidebar-section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 14px 0 6px;
+      font-weight: 800;
+    }
+    .sidebar-section-title:first-child { margin-top: 0; }
+    .sidebar-menu { list-style: none; }
+    .sidebar-item { margin-bottom: 4px; }
+    .sidebar-item a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      display: block;
+      padding: 5px 10px;
+      border-radius: 4px;
+      transition: all 0.12s ease;
+    }
+    .sidebar-item a:hover {
+      background: #1c2333;
+      color: var(--gold);
+      padding-left: 14px;
+    }
+
+    /* Content Area */
+    .content {
+      min-width: 0;
+    }
+    .hero-banner {
+      background: linear-gradient(180deg, rgba(244, 162, 97, 0.08) 0%, rgba(14, 18, 28, 0.8) 100%);
+      border: 1px solid rgba(244, 162, 97, 0.25);
+      border-radius: 12px;
+      padding: 36px 40px;
+      margin-bottom: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-banner h1 {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 32px;
+      color: var(--gold);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+    }
+    .hero-banner p {
+      font-size: 14px;
+      color: #d1d5db;
+      max-width: 780px;
+      line-height: 1.6;
+    }
+
+    .doc-section {
+      margin-bottom: 50px;
+      scroll-margin-top: 90px;
+    }
+    .doc-section h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      color: var(--gold);
+      border-bottom: 2px solid rgba(255, 209, 102, 0.25);
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .doc-section h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      color: var(--amber);
+      margin: 24px 0 10px;
+    }
+    .doc-section p {
+      font-size: 13px;
+      margin-bottom: 14px;
+      color: #d1d5db;
+    }
+
+    /* Tables */
+    .docs-table-wrapper {
+      overflow-x: auto;
+      margin-bottom: 24px;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+      background: var(--panel-bg);
+    }
+    th {
+      background: #19202f;
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--card-border);
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #1f2738;
+      vertical-align: middle;
+    }
+    tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+    tr:hover { background: rgba(244, 162, 97, 0.06); }
+
+    /* Badges & Cards */
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .badge-gold { background: rgba(255, 209, 102, 0.15); color: var(--gold); border: 1px solid rgba(255, 209, 102, 0.4); }
+    .badge-tier1 { background: rgba(56, 189, 248, 0.15); color: var(--blue); border: 1px solid rgba(56, 189, 248, 0.4); }
+    .badge-tier2 { background: rgba(167, 139, 250, 0.15); color: var(--violet); border: 1px solid rgba(167, 139, 250, 0.4); }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 18px 20px;
+    }
+    .info-card h4 {
+      font-family: 'Cinzel', serif;
+      color: var(--amber);
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .tree-block {
+      background: #0f131c;
+      border: 1px solid #2b3346;
+      border-radius: 8px;
+      padding: 20px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: #a7f3d0;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    kbd {
+      background: #232a3b;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+      color: var(--gold);
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Top Header -->
+  <header>
+    <a href="swarajya3d.html" class="nav-brand">
+      <svg class="nav-mandala" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="46" stroke="#f4a261" stroke-width="2" stroke-dasharray="3 3"/>
+        <circle cx="50" cy="50" r="40" stroke="#ffd166" stroke-width="1.6"/>
+        <polygon points="50,14 84,76 16,76" stroke="#f4a261" stroke-width="1.8" fill="rgba(244,162,97,0.1)"/>
+        <polygon points="50,86 84,24 16,24" stroke="#ffd166" stroke-width="1.8" fill="rgba(255,209,102,0.1)"/>
+        <circle cx="50" cy="50" r="12" stroke="#e76f51" stroke-width="1.8"/>
+        <circle cx="50" cy="50" r="4" fill="#ffd166"/>
+      </svg>
+      <span class="nav-title">SWARAJYA 3D</span>
+      <span class="nav-tag">Docs Portal</span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#economy" class="nav-link">Economy</a>
+      <a href="#maps" class="nav-link">Maps</a>
+      <a href="#buildings" class="nav-link">Buildings</a>
+      <a href="#units" class="nav-link">Units</a>
+      <a href="#tech-tree" class="nav-link">Tech Tree</a>
+      <a href="#controls" class="nav-link">Controls</a>
+      <a href="swarajya3d.html" class="play-btn">🎮 LAUNCH GAME</a>
+    </div>
+  </header>
+
+  <div class="docs-container">
+    
+    <!-- Navigation Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section-title">Overview</div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="#intro">Lore & Foundation</a></li>
+        <li class="sidebar-item"><a href="#economy">Economy & Supply Lines</a></li>
+        <li class="sidebar-item"><a href="#maps">Battleground Maps</a></li>
+      </ul>
+
+      <div class="sidebar-section-title">Reference Codex</div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="#buildings">All 14 Buildings</a></li>
+        <li class="sidebar-item"><a href="#units">All 16 Units</a></li>
+        <li class="sidebar-item"><a href="#tech-tree">3-Tier Tech Tree</a></li>
+        <li class="sidebar-item"><a href="#spiritual-paths">3 Divergent Paths</a></li>
+      </ul>
+
+      <div class="sidebar-section-title">Systems & Online</div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="#diplomacy">Diplomacy & Chat</a></li>
+        <li class="sidebar-item"><a href="#controls">Controls & Shortcuts</a></li>
+        <li class="sidebar-item"><a href="#multiplayer">Serverless P2P Multiplayer</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Documentation Content -->
+    <main class="content">
+
+      <!-- Hero Banner -->
+      <div class="hero-banner" id="intro">
+        <h1>THE HIMALAYAN TRIAL OF INDRA</h1>
+        <p>
+          Welcome to the official tactical compendium for <strong>Swarajya 3D</strong> — an authentic 3D Real-Time Strategy game built on pure Three.js and deterministic lockstep simulation. Grounded in authentic Himalayan <em>Siddhapedia</em> lore and classic <em>Warrior Kings: Battles</em> tactical warfare, commanders clash across jagged snow ridges, cultivate barley fields, forge war chariots, and command mythical dragons.
+        </p>
+      </div>
+
+      <!-- Economy Section -->
+      <section class="doc-section" id="economy">
+        <h2>🌾 1. Economy & Supply Lines</h2>
+        <p>
+          Swarajya operates on a physical, three-resource economy. Resources are not abstract numbers — they are harvested, held, and hauled across physical terrain.
+        </p>
+
+        <div class="grid-2">
+          <div class="info-card">
+            <h4>🟡 Gold (Suvarna)</h4>
+            <p>Mined by Praja (Peasants) from glowing mountain ore seams. Pays for all unit training, building construction, and weapon upgrades.</p>
+          </div>
+          <div class="info-card">
+            <h4>🌲 Timber (Daruka)</h4>
+            <p>Felled by Praja from alpine cedar and pine forests. Required for raising building timber frames, watchtowers, and siege artillery.</p>
+          </div>
+          <div class="info-card">
+            <h4>🌾 Food (Dhanya)</h4>
+            <p>Cultivated on Kshetra (Farms). Sustains your standing army. An army with zero food begins to suffer starvation morale loss.</p>
+          </div>
+          <div class="info-card">
+            <h4>📦 Supply Carts (Shakata)</h4>
+            <p>Peasants drop loads at forward Kosha (Warehouses). Automated Carts must haul goods to your Asana (Manor) before they can be spent. Kill enemy carts to sever supply lines!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Maps Section -->
+      <section class="doc-section" id="maps">
+        <h2>🗺️ 2. Strategic Battleground Maps</h2>
+        <div class="docs-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Map Name</th>
+                <th>Seats</th>
+                <th>Dimensions</th>
+                <th>Topography & Tactical Features</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>The Crucible (कुण्ड द्रोणी)</strong></td>
+                <td><span class="badge badge-gold">4 Players</span></td>
+                <td>144 × 144</td>
+                <td>1:1 recreation of the classic Warrior Kings caldera. 4 elevated corner plateaus, steep ramp bottlenecks, sunken river basin with wide fords, and contested central gold monolith.</td>
+              </tr>
+              <tr>
+                <td><strong>Valley of Four Kings (चतुर्नृप)</strong></td>
+                <td><span class="badge badge-gold">4 Players</span></td>
+                <td>160 × 160</td>
+                <td>Vast asymmetric Himalayan landscape with meandering glacial rivers, southwest alpine lake, deep canyon gorge, and central mountain fortress.</td>
+              </tr>
+              <tr>
+                <td><strong>Kailash Sanctum (कैलाश धाम)</strong></td>
+                <td><span class="badge badge-tier1">2 Players</span></td>
+                <td>144 × 112</td>
+                <td>Mount Kailash axis mundi standing between sacred glacial lakes. Contested high-altitude passes and treacherous gold ridges.</td>
+              </tr>
+              <tr>
+                <td><strong>Trishul Pass (त्रिशूल दर्रा)</strong></td>
+                <td><span class="badge badge-tier1">2 Players</span></td>
+                <td>128 × 96</td>
+                <td>Three sharp peak ridges dividing alpine valleys. Two narrow switchback corridors contested by glacial streams.</td>
+              </tr>
+              <tr>
+                <td><strong>Kingsmoor</strong></td>
+                <td><span class="badge badge-tier1">2 Players</span></td>
+                <td>112 × 84</td>
+                <td>Classic river valley with three ford crossings, dense woods, sniper hill bluffs, and contested central gold.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Buildings Catalog -->
+      <section class="doc-section" id="buildings">
+        <h2>🏰 3. Complete Building Catalog (14 Structures)</h2>
+        <div class="docs-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Building</th>
+                <th>Sanskrit Name</th>
+                <th>Cost</th>
+                <th>HP</th>
+                <th>Tier</th>
+                <th>Function & Special Mechanics</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Manor / Great Hall</strong></td>
+                <td><em>Asana</em> (आसन)</td>
+                <td>Starting Free</td>
+                <td>2400</td>
+                <td>Tier 0</td>
+                <td>Central HQ. Trains Peasants, stores goods, fires defensive arrows (11 Dmg, 150 Range).</td>
+              </tr>
+              <tr>
+                <td><strong>Warehouse</strong></td>
+                <td><em>Kosha</em> (कोश)</td>
+                <td>60🪙 50🌲</td>
+                <td>400</td>
+                <td>Tier 0</td>
+                <td>Forward drop-off depot. Stores 1100 Grain. Trains automated supply Carts.</td>
+              </tr>
+              <tr>
+                <td><strong>Farm</strong></td>
+                <td><em>Kshetra</em> (क्षेत्र)</td>
+                <td>40🪙 30🌲</td>
+                <td>260</td>
+                <td>Tier 0</td>
+                <td>Cultivated barley fields worked by peasants to provide grain supply.</td>
+              </tr>
+              <tr>
+                <td><strong>Barracks</strong></td>
+                <td><em>Akhara</em> (अखाड़ा)</td>
+                <td>120🪙 90🌲</td>
+                <td>700</td>
+                <td>Tier 0</td>
+                <td>Trains Spearmen (*Shulin*), Archers (*Dhanurdhara*), and Yogini mystics.</td>
+              </tr>
+              <tr>
+                <td><strong>Royal Armory & Foundry</strong></td>
+                <td><em>Khaḍga Shala</em></td>
+                <td>160🪙 140🌲</td>
+                <td>850</td>
+                <td>Tier 0</td>
+                <td>Heavy forge. Enhances armor resilience and constructs War Chariots (*Ratha*).</td>
+              </tr>
+              <tr>
+                <td><strong>Watch Beacon</strong></td>
+                <td><em>Dhvaja Stambha</em></td>
+                <td>50🪙 80🌲</td>
+                <td>500</td>
+                <td>Tier 0</td>
+                <td>High mountain spire with eternal brazier granting 450 sight radius through fog.</td>
+              </tr>
+              <tr>
+                <td><strong>Watchtower</strong></td>
+                <td><em>Prahari</em> (प्रहरी)</td>
+                <td>80🪙 70🌲</td>
+                <td>520</td>
+                <td>Tier 0</td>
+                <td>Automated defense tower (9 Dmg, 165 Range) to guard mining outposts.</td>
+              </tr>
+              <tr>
+                <td><strong>Stone Wall</strong></td>
+                <td><em>Prakara</em> (प्राकार)</td>
+                <td>8🪙 18🌲</td>
+                <td>620</td>
+                <td>Tier 0</td>
+                <td>Stone barrier to close gaps and funnel enemy forces into kill zones.</td>
+              </tr>
+              <tr>
+                <td><strong>Gatehouse</strong></td>
+                <td><em>Dwara</em> (द्वार)</td>
+                <td>45🪙 60🌲</td>
+                <td>900</td>
+                <td>Tier 0</td>
+                <td>Fortified door passable by allies and impassable to enemy forces.</td>
+              </tr>
+              <tr>
+                <td><strong>Bridge</strong></td>
+                <td><em>Setu</em> (सेतु)</td>
+                <td>10🪙 40🌲</td>
+                <td>340</td>
+                <td>Tier 0</td>
+                <td>Walkable wooden structure constructed directly over river water tiles.</td>
+              </tr>
+              <tr>
+                <td><strong>Stables</strong></td>
+                <td><em>Vaji Shala</em> (वाजि शाला)</td>
+                <td>180🪙 110🌲</td>
+                <td>800</td>
+                <td>Tier 1</td>
+                <td>Trains fast cavalry: Lancers (*Ashvarohi*) and Mounted Archers (*Mrigayini*).</td>
+              </tr>
+              <tr>
+                <td><strong>Bastion (Steadfast)</strong></td>
+                <td><em>Shira Durg</em> (शिर दुर्ग)</td>
+                <td>200🪙 200🌲</td>
+                <td>1200</td>
+                <td>Tier 1</td>
+                <td><strong>Vanashira Path House</strong>. +25% HP to all buildings; trains Heavy Guards (*Kshetrapala*).</td>
+              </tr>
+              <tr>
+                <td><strong>Shrine (Mother-Energies)</strong></td>
+                <td><em>Mantra Shala</em></td>
+                <td>360🪙 180🌲</td>
+                <td>1000</td>
+                <td>Tier 1</td>
+                <td><strong>Matrika Path House</strong>. +12% Speed to all units; trains Dragons, War Bears, Witches.</td>
+              </tr>
+              <tr>
+                <td><strong>Workshop (Bare Frame)</strong></td>
+                <td><em>Asthi Shala</em></td>
+                <td>190🪙 160🌲</td>
+                <td>900</td>
+                <td>Tier 1</td>
+                <td><strong>Kankala Path House</strong>. Trains Field Engineers, Battering Rams, Guardians, Witches.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Units Roster -->
+      <section class="doc-section" id="units">
+        <h2>⚔️ 4. Complete Unit Roster (16 Units)</h2>
+        <div class="docs-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Unit</th>
+                <th>Sanskrit</th>
+                <th>Cost</th>
+                <th>HP</th>
+                <th>Dmg</th>
+                <th>Spd</th>
+                <th>Rng</th>
+                <th>Combat Role & Tactica</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Peasant</strong></td>
+                <td><em>Praja</em></td>
+                <td>30🪙</td>
+                <td>28</td>
+                <td>2</td>
+                <td>46</td>
+                <td>16</td>
+                <td>Mines gold, chops cedar wood, farms grain, and builds all structures.</td>
+              </tr>
+              <tr>
+                <td><strong>Supply Cart</strong></td>
+                <td><em>Shakata</em></td>
+                <td>30🪙 40🌲</td>
+                <td>90</td>
+                <td>0</td>
+                <td>58</td>
+                <td>0</td>
+                <td>Automated hauler (300 cap) ferrying goods from Kosha to Manor.</td>
+              </tr>
+              <tr>
+                <td><strong>Spearman</strong></td>
+                <td><em>Shulin</em></td>
+                <td>25🪙 30🌾</td>
+                <td>70</td>
+                <td>9</td>
+                <td>52</td>
+                <td>22</td>
+                <td>Frontline infantry backbone; hard counter to cavalry charges.</td>
+              </tr>
+              <tr>
+                <td><strong>Archer</strong></td>
+                <td><em>Dhanurdhara</em></td>
+                <td>35🪙 15🌲 30🌾</td>
+                <td>42</td>
+                <td>7</td>
+                <td>48</td>
+                <td>120</td>
+                <td>Ranged volley unit (60 Ammo); gains massive reach advantage from high cliffs.</td>
+              </tr>
+              <tr>
+                <td><strong>Lancer</strong></td>
+                <td><em>Ashvarohi</em></td>
+                <td>70🪙 55🌾</td>
+                <td>130</td>
+                <td>17</td>
+                <td>92</td>
+                <td>24</td>
+                <td>Fast shock cavalry for flanking, chasing down archers, and raiding carts.</td>
+              </tr>
+              <tr>
+                <td><strong>Mounted Archer</strong></td>
+                <td><em>Mrigayini</em></td>
+                <td>80🪙 20🌲 55🌾</td>
+                <td>72</td>
+                <td>10</td>
+                <td>86</td>
+                <td>100</td>
+                <td>Fast skirmisher (45 Ammo); fires on the gallop with high mobility.</td>
+              </tr>
+              <tr>
+                <td><strong>Yogini Adept</strong></td>
+                <td><em>Yogini</em></td>
+                <td>110🪙 70🌾</td>
+                <td>85</td>
+                <td>16</td>
+                <td>62</td>
+                <td>115</td>
+                <td>Tantric mystic; channels piercing lightning bolts and defensive wards.</td>
+              </tr>
+              <tr>
+                <td><strong>War Chariot</strong></td>
+                <td><em>Ratha</em></td>
+                <td>120🪙 90🌲 50🌾</td>
+                <td>240</td>
+                <td>20</td>
+                <td>76</td>
+                <td>160</td>
+                <td>Mobile ballista chariot (3× building damage multiplier).</td>
+              </tr>
+              <tr>
+                <td><strong>Field Engineer</strong></td>
+                <td><em>Sthapati</em></td>
+                <td>45🪙 20🌲 30🌾</td>
+                <td>46</td>
+                <td>4</td>
+                <td>44</td>
+                <td>18</td>
+                <td>Constructs Catapults and Mangonels directly out on the battlefield.</td>
+              </tr>
+              <tr>
+                <td><strong>Catapult</strong></td>
+                <td><em>Kshepani</em></td>
+                <td>110🪙 100🌲</td>
+                <td>150</td>
+                <td>24</td>
+                <td>0</td>
+                <td>300</td>
+                <td>Heavy fixed siege engine (5× vs buildings); colossal 300 range.</td>
+              </tr>
+              <tr>
+                <td><strong>Mangonel</strong></td>
+                <td><em>Shila Yantra</em></td>
+                <td>70🪙 70🌲</td>
+                <td>110</td>
+                <td>9</td>
+                <td>0</td>
+                <td>190</td>
+                <td>Rapid-fire stone thrower (2× vs buildings); fixed artillery.</td>
+              </tr>
+              <tr>
+                <td><strong>Battering Ram</strong></td>
+                <td><em>Dwaraghna</em></td>
+                <td>60🪙 120🌲</td>
+                <td>320</td>
+                <td>12</td>
+                <td>26</td>
+                <td>30</td>
+                <td>Heavy armored siege engine (8× vs buildings); crushes gates.</td>
+              </tr>
+              <tr>
+                <td><strong>Heavy Guard</strong></td>
+                <td><em>Kshetrapala</em></td>
+                <td>75🪙 25🌲 50🌾</td>
+                <td>190</td>
+                <td>15</td>
+                <td>38</td>
+                <td>22</td>
+                <td>Immovable defensive wall (190 HP); holds mountain chokes and gates.</td>
+              </tr>
+              <tr>
+                <td><strong>Conversion Mystic</strong></td>
+                <td><em>Mantrini</em></td>
+                <td>220🪙 90🌾</td>
+                <td>60</td>
+                <td>3</td>
+                <td>50</td>
+                <td>20</td>
+                <td>Permanently converts enemy units over 60s ritual chanting.</td>
+              </tr>
+              <tr>
+                <td><strong>War Bear</strong></td>
+                <td><em>Rksha</em></td>
+                <td>260🪙 160🌾</td>
+                <td>900</td>
+                <td>20</td>
+                <td>34</td>
+                <td>28</td>
+                <td>Colossal siege beast (900 HP, 4× vs buildings); soaks enormous punishment.</td>
+              </tr>
+              <tr>
+                <td><strong>Flying Serpent</strong></td>
+                <td><em>Kankana Naga</em></td>
+                <td>300🪙 140🌾</td>
+                <td>340</td>
+                <td>26</td>
+                <td>96</td>
+                <td>70</td>
+                <td>8-headed flying dragon; completely ignores terrain, cliffs, and rivers.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tech Tree & Spiritual Paths -->
+      <section class="doc-section" id="tech-tree">
+        <h2>🌳 5. The 3-Tier Tech Tree & Divergent Alignment System</h2>
+        <div class="tree-block">
+[TIER 0: GRAMA / VILLAGE]
+ ├── Asana (Manor) ➔ Praja (Peasants)
+ ├── Kosha (Warehouse) ➔ Shakata (Supply Carts)
+ ├── Kshetra (Farms) ➔ Grain & Food Sustenance
+ ├── Akhara (Barracks) ➔ Shulin (Spear), Dhanurdhara (Bow), Yogini (Lightning)
+ ├── Khadga Shala (Armory) ➔ Ratha (War Chariot & Ballista)
+ └── Fortifications: Prahari (Tower), Prakara (Wall), Dwara (Gate), Setu (Bridge)
+       │
+       ▼ [Upgrade Manor ➔ TIER 1: DURGADHYAKSHA / KEEP]
+ ├── Vaji Shala (Stables) ➔ Ashvarohi (Lancers), Mrigayini (Mounted Archers)
+ ├── ⚔️ CHOOSE YOUR PATH (By Raising Its Dedicated House):
+ │     │
+ │     ├── 🏔️ [VANASHIRA PATH — THE STEADFAST / PURUSHA]
+ │     │     └── Shira Durg (Bastion) ➔ Kshetrapala Heavy Guards (+25% All Building HP)
+ │     │
+ │     ├── ⚡ [MATRIKA PATH — THE MOTHER-ENERGIES / SHAKTI]
+ │     │     └── Mantra Shala (Lair) ➔ Mantrini Mystics (+12% All Unit Movement Speed)
+ │     │
+ │     └── ⚙️ [KANKALA PATH — THE BARE FRAME / ABHEDA]
+ │           └── Asthi Shala (Workshop) ➔ Sthapati Field Engineers & Dwaraghna Rams
+ │
+       ▼ [Upgrade Manor ➔ TIER 2: MAHASAMANTA / CASTLE]
+ ├── Permanent Path Commitment (Locks in chosen discipline for the match)
+ ├── [Vanashira Apex] ➔ Fortress Monoliths & Unbreakable Stone Walls
+ ├── [Matrika Apex] ➔ Kankana Naga (Flying 8-Headed Serpent) & Rksha (War Bear)
+ └── [Kankala Apex] ➔ Kshepani (Catapults) & Shila Yantra (Mangonels)
+        </div>
+      </section>
+
+      <!-- Controls & Shortcuts -->
+      <section class="doc-section" id="controls">
+        <h2>⌨️ 6. Controls & Hotkeys Quick Reference</h2>
+        <div class="docs-table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Hotkey / Mouse Control</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Camera Panning</strong></td>
+                <td><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or Arrow Keys</td>
+                <td>Smoothly glides the tactical camera across the battlefield.</td>
+              </tr>
+              <tr>
+                <td><strong>Speed Acceleration</strong></td>
+                <td><kbd>Shift</kbd> + <kbd>WASD</kbd></td>
+                <td>Accelerates camera panning speed by +50% for rapid navigation.</td>
+              </tr>
+              <tr>
+                <td><strong>Center Camera</strong></td>
+                <td><kbd>Space</kbd></td>
+                <td>Snaps camera directly over selected units, or returns to base if no selection.</td>
+              </tr>
+              <tr>
+                <td><strong>Minimap Navigation</strong></td>
+                <td>Left-Click / Drag on Minimap</td>
+                <td>Instantly jumps camera to that exact world coordinate.</td>
+              </tr>
+              <tr>
+                <td><strong>Camera Orbit & Pitch</strong></td>
+                <td>Right-Click Drag or Middle-Click Drag</td>
+                <td>Rotates panoramic yaw angle and tilts pitch from low vista to top-down.</td>
+              </tr>
+              <tr>
+                <td><strong>Camera Zoom</strong></td>
+                <td>Mouse Scroll Wheel</td>
+                <td>Smoothly zooms from close-up combat to high-altitude panoramic view.</td>
+              </tr>
+              <tr>
+                <td><strong>Idle Peasant</strong></td>
+                <td><kbd>E</kbd> or <kbd>.</kbd></td>
+                <td>Selects and focuses camera on the next unassigned idle peasant.</td>
+              </tr>
+              <tr>
+                <td><strong>Tactical Chat</strong></td>
+                <td><kbd>Enter</kbd></td>
+                <td>Opens scrollable match chat history. Press <kbd>Tab</kbd> to cycle [ALL] / [ALLIES] / [Whisper].</td>
+              </tr>
+              <tr>
+                <td><strong>Diplomacy & Pacts</strong></td>
+                <td><kbd>P</kbd> or <kbd>F2</kbd></td>
+                <td>Toggles diplomacy modal to adjust Ally / Neutral / Enemy stances and send tributes.</td>
+              </tr>
+              <tr>
+                <td><strong>Cancel / Close Menu</strong></td>
+                <td><kbd>Esc</kbd></td>
+                <td>Clears current selection, cancels blueprint placement, or opens settings menu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Serverless Multiplayer -->
+      <section class="doc-section" id="multiplayer">
+        <h2>🌐 7. Serverless WebRTC Peer-to-Peer Multiplayer</h2>
+        <p>
+          Swarajya 3D features 100% serverless WebRTC multiplayer running directly in your browser:
+        </p>
+        <ul>
+          <li><strong>Host a Room</strong>: Go to the <em>🌐 Online 1v1</em> tab and click <strong>Host Realm Room</strong> to receive a 5-letter code (e.g. <code>KSET9</code>).</li>
+          <li><strong>Join a Room</strong>: Have your friend enter <code>KSET9</code> and click <strong>Join Realm Room</strong>.</li>
+          <li><strong>Global Direct P2P</strong>: Connects browsers directly over low-latency WebRTC DataChannels using Google STUN without requiring any backend servers!</li>
+        </ul>
+      </section>
+
+    </main>
+  </div>
+
+</body>
+</html>
