@@ -62,10 +62,10 @@ export class Minimap3D {
 
   _bindEvents() {
     const handleMinimapClick = (e) => {
-      if (!this.sim) return;
+      if (!this.sim || !this.sim.grid) return;
       const rect = this.canvas.getBoundingClientRect();
-      const xPct = (e.clientX - rect.left) / rect.width;
-      const yPct = (e.clientY - rect.top) / rect.height;
+      const xPct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const yPct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
       const worldW = this.sim.grid.w * TILE;
       const worldH = this.sim.grid.h * TILE;
@@ -76,20 +76,42 @@ export class Minimap3D {
       this.rtsCamera.focusOn(targetX, targetZ);
     };
 
-    this.canvas.addEventListener("mousedown", (e) => {
+    const onPointerDown = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       this.isDragging = true;
+      handleMinimapClick(e);
+    };
+
+    const onPointerMove = (e) => {
+      if (this.isDragging) {
+        e.stopPropagation();
+        e.preventDefault();
+        handleMinimapClick(e);
+      }
+    };
+
+    const onPointerUp = (e) => {
+      if (this.isDragging) {
+        e.stopPropagation();
+        this.isDragging = false;
+      }
+    };
+
+    this.wrapper.addEventListener("pointerdown", onPointerDown);
+    this.wrapper.addEventListener("mousedown", onPointerDown);
+    this.canvas.addEventListener("pointerdown", onPointerDown);
+    this.canvas.addEventListener("mousedown", onPointerDown);
+    this.canvas.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       handleMinimapClick(e);
     });
 
-    window.addEventListener("mousemove", (e) => {
-      if (this.isDragging) {
-        handleMinimapClick(e);
-      }
-    });
-
-    window.addEventListener("mouseup", () => {
-      this.isDragging = false;
-    });
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("mouseup", onPointerUp);
   }
 
   /**

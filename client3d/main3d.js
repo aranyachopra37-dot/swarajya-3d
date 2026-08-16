@@ -233,8 +233,14 @@ class Swarajya3DApp {
 
     window.addEventListener("keydown", (e) => {
       this._ensureAudio();
+      const chatInput = document.getElementById("rts-chat-input");
+      if (document.activeElement === chatInput) return;
+
       if (e.key === "." || e.key === "e") {
         this._selectNextIdlePeasant();
+      } else if (e.code === "Space") {
+        e.preventDefault();
+        this._focusCameraOnSelectionOrBase();
       } else if (e.key === "Escape") {
         if (this.placingBuildingType) {
           this.placingBuildingType = null;
@@ -438,6 +444,42 @@ class Swarajya3DApp {
       this.selection.add(p.id);
       this.rtsCamera.focusOn(p.x, p.y);
       this._updateContextualHUD();
+    }
+  }
+
+  _focusCameraOnSelectionOrBase() {
+    if (!this.sim) return;
+
+    if (this.selection.size > 0) {
+      const selIds = Array.from(this.selection);
+      const selUnits = this.sim.units.filter(u => selIds.includes(u.id));
+      const selBuildings = this.sim.buildings.filter(b => selIds.includes(b.id));
+
+      if (selUnits.length > 0) {
+        let avgX = 0, avgY = 0;
+        for (const u of selUnits) {
+          avgX += u.x;
+          avgY += u.y;
+        }
+        avgX /= selUnits.length;
+        avgY /= selUnits.length;
+        this.rtsCamera.focusOn(avgX, avgY);
+        return;
+      } else if (selBuildings.length > 0) {
+        const b = selBuildings[0];
+        const bx = (b.tx + (b.spec ? b.spec.tiles : 2) / 2) * TILE;
+        const bz = (b.ty + (b.spec ? b.spec.tiles : 2) / 2) * TILE;
+        this.rtsCamera.focusOn(bx, bz);
+        return;
+      }
+    }
+
+    // Default: focus on starting Manor (hall)
+    const localManor = this.sim.buildings.find(b => b.owner === this.localPlayer && b.spec.isHeart);
+    if (localManor) {
+      const mx = (localManor.tx + localManor.spec.tiles / 2) * TILE;
+      const mz = (localManor.ty + localManor.spec.tiles / 2) * TILE;
+      this.rtsCamera.focusOn(mx, mz);
     }
   }
 
