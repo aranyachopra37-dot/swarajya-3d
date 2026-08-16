@@ -2027,7 +2027,7 @@ export const MAPS = {
   trishulPass: {
     id: "trishulPass",
     seats: 2,
-    symmetry: "mirrorX",
+    symmetry: "none",
     name: "Trishul Pass (त्रिशूल दर्रा)",
     w: 128, h: 96,
     starts: [[8, 48], [117, 48]],
@@ -2040,7 +2040,7 @@ export const MAPS = {
   kailashSanctum: {
     id: "kailashSanctum",
     seats: 2,
-    symmetry: "mirrorX",
+    symmetry: "none",
     name: "Kailash Sanctum (कैलाश धाम)",
     w: 144, h: 112,
     starts: [[12, 56], [129, 56]],
