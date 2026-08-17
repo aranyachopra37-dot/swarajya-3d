@@ -597,6 +597,49 @@ class Swarajya3DApp {
         this.loreAudio.setMusicVolume(v);
       });
     }
+
+    // Quality selector buttons
+    const savedQuality = localStorage.getItem("swarajya_graphics_quality") || "high";
+    this.setGraphicsQuality(savedQuality);
+
+    const qBtns = document.querySelectorAll(".quality-btn");
+    qBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        this.setGraphicsQuality(btn.dataset.quality);
+      });
+    });
+  }
+
+  setGraphicsQuality(quality) {
+    this.graphicsQuality = quality;
+    try {
+      localStorage.setItem("swarajya_graphics_quality", quality);
+    } catch (e) {}
+
+    if (this.renderer3D) this.renderer3D.setQuality(quality);
+    if (this.sky) this.sky.setQuality(quality);
+    if (this.vfx) this.vfx.setQuality(quality);
+
+    if (quality === "low") {
+      this.renderer.shadowMap.enabled = false;
+      this.renderer.setPixelRatio(1.0);
+      if (this.scene.fog) this.scene.fog.density = 0.00015;
+    } else if (quality === "medium") {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.BasicShadowMap;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+      if (this.scene.fog) this.scene.fog.density = 0.0003;
+    } else {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+      if (this.scene.fog) this.scene.fog.density = 0.00035;
+    }
+
+    const qBtns = document.querySelectorAll(".quality-btn");
+    qBtns.forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.quality === quality);
+    });
   }
 
   _toggleGameMenu() {
@@ -632,14 +675,19 @@ class Swarajya3DApp {
           .map(u => u.id);
       }
 
-      this._dispatchCommand(cmd.build(this.placingBuildingType, tx, ty, peasants));
+      // If holding Ctrl, queue the build order on peasants' plan!
+      const isQueued = Boolean(e.ctrlKey);
+      this._dispatchCommand(cmd.build(this.placingBuildingType, tx, ty, peasants, isQueued));
       const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
       this.vfx.spawnDebris(pt.x, elev, pt.z, 14, 0xd4a373);
       this.loreAudio.playTempleBell(648);
     }
 
-    this.placingBuildingType = null;
-    this.ghostMesh.visible = false;
+    // If Ctrl is held, stay in building placement mode to allow placing 10 walls / 5 farms in a row!
+    if (!e.ctrlKey) {
+      this.placingBuildingType = null;
+      this.ghostMesh.visible = false;
+    }
   }
 
   _getGroundIntersection(e) {
@@ -728,12 +776,14 @@ class Swarajya3DApp {
 
     const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
 
+    const isQueued = Boolean(e.ctrlKey);
+
     for (const u of this.sim.units) {
       if (u.owner !== this.localPlayer) {
         const dx = u.x - pt.x;
         const dz = u.y - pt.z;
         if (dx * dx + dz * dz <= (u.radius + clickRadius) ** 2) {
-          this._dispatchCommand(cmd.attack(unitIds, u.id));
+          this._dispatchCommand(cmd.attack(unitIds, u.id, isQueued));
           const elev = this.terrain ? this.terrain.getHeight(u.x, u.y) : 0;
           this.vfx.spawnDebris(u.x, elev, u.y, 4, 0xef476f);
           this.loreAudio.playWarDrum(55, 0.7);
@@ -748,7 +798,7 @@ class Swarajya3DApp {
         const bz = (b.ty + b.spec.tiles / 2) * TILE;
         const half = (b.spec.tiles * TILE) / 2;
         if (Math.abs(bx - pt.x) <= half + clickRadius && Math.abs(bz - pt.z) <= half + clickRadius) {
-          this._dispatchCommand(cmd.attack(unitIds, b.id));
+          this._dispatchCommand(cmd.attack(unitIds, b.id, isQueued));
           const elev = this.terrain ? this.terrain.getHeight(bx, bz) : 0;
           this.vfx.spawnDebris(bx, elev, bz, 6, 0x8b5a2b);
           this.loreAudio.playWarDrum(50, 0.8);
@@ -757,7 +807,7 @@ class Swarajya3DApp {
       }
     }
 
-    this._dispatchCommand(cmd.order(unitIds, targetTileX, targetTileY));
+    this._dispatchCommand(cmd.order(unitIds, targetTileX, targetTileY, isQueued));
     this.loreAudio.playWarDrum(75, 0.4);
   }
 

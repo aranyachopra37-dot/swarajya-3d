@@ -220,23 +220,16 @@ export const BUILDINGS = {
     lore: "Your hall, your granary, and the only roof your people actually care about.",
   },
   warehouse: {
-    id: "warehouse", name: "Kosha",
-    plain: "Storehouse. A closer place for peasants to drop loads, and extra barn space for grain. A cart carries the goods on to your hall.", cost: { gold: 60, timber: 50 }, tiles: 2, hp: 400,
+    id: "warehouse", name: "Grama (Village & Storehouse)",
+    plain: "Village & Storehouse (Warrior Kings). Local rural hub that trains Praja (peasants/farmers) directly, stores grain, and serves as a closer drop-off depot for gold, timber, and crops.",
+    cost: { gold: 60, timber: 50 }, tiles: 2, hp: 450,
     buildWork: 340,
-    // A DEPOT, NOT A TREASURY.
-    //
-    // Peasants tip their loads in here, but nothing in it can be spent. A cart
-    // has to carry it to the manor first, and a cart can be killed. That one
-    // rule is what turns a forward mining camp from free money into a supply
-    // line — something with a length, a direction, and a throat to cut.
     dropOff: true,
     depot: true,
-    // Barn space. A storehouse is now worth building for what it HOLDS as well
-    // as for where it stands.
     granary: 1100,
-    trains: ["cart"],
+    trains: ["peasant", "cart"],
     colour: "#d4b25e",
-    lore: "Four walls and a ledger. Put it beside the gold, not beside the hall.",
+    lore: "A bustling village hub. Peasants trained here automatically cultivate and harvest nearby fertile farmland.",
   },
   farm: {
     id: "farm", name: "Kshetra",
@@ -2800,7 +2793,13 @@ function completeSite(sim, site) {
   // rather than reading it back — it would read BUILDING and be lost.
   const building = placeBuilding(sim, site.owner, site.spec.id, site.tx, site.ty, site.groundUnder);
   for (const u of sim.units) {
-    if (u.job && u.job.kind === "build" && u.job.id === site.id) u.job = null;
+    if (u.job && u.job.kind === "build" && u.job.id === site.id) {
+      if (building.spec.farm) {
+        u.job = { kind: "harvest", id: building.id };
+      } else {
+        u.job = null;
+      }
+    }
   }
   sound(sim, "build", site.owner);
   say(sim, `${sim.players[site.owner].name}'s ${site.spec.name} is finished.`);
@@ -4410,6 +4409,32 @@ function spawnUnit(sim, building, type) {
     } else {
       unit.job = job;
       unit.order = { tx: building.rally.tx, ty: building.rally.ty };
+    }
+  } else if (building.spec.id === "warehouse" && type === "peasant") {
+    // Warrior Kings: Battles Village Behavior:
+    // Farmer automatically seeks nearby farm or marks out a fertile farm plot nearby
+    let nearbyFarm = sim.buildings.find(
+      (b) => b.owner === building.owner && b.spec.farm && gapTo(b, unit.x, unit.y) <= 200 * 200
+    );
+    if (nearbyFarm) {
+      unit.job = { kind: "harvest", id: nearbyFarm.id };
+    } else {
+      let farmSpot = null;
+      for (let r = 2; r <= 6; r++) {
+        for (const [fx, fy] of ringAround(building.tx, building.ty, building.spec.tiles, r)) {
+          if (canBuild(sim, building.owner, "farm", fx, fy).ok) {
+            farmSpot = { tx: fx, ty: fy };
+            break;
+          }
+        }
+        if (farmSpot) break;
+      }
+      if (farmSpot && canAfford(sim.players[building.owner], BUILDINGS.farm)) {
+        pay(sim.players[building.owner], BUILDINGS.farm);
+        const site = placeSite(sim, building.owner, "farm", farmSpot.tx, farmSpot.ty);
+        unit.job = { kind: "build", id: site.id };
+        say(sim, `Village farmer lays out a fertile farmstead.`);
+      }
     }
   }
   sim.units.push(unit);

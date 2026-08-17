@@ -106,6 +106,17 @@ export class Sky3D {
     this._initWeather();
   }
 
+  setQuality(quality) {
+    this.quality = quality;
+    if (quality === "low") {
+      this.particleGroup.visible = false;
+      this.sunSprite.visible = false;
+    } else {
+      this.particleGroup.visible = true;
+      this.sunSprite.visible = true;
+    }
+  }
+
   /**
    * Advances the day-night cycle by dt seconds.
    * @param {number} dt - Frame delta time in seconds

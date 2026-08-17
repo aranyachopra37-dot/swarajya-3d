@@ -341,6 +341,29 @@
       text-decoration: underline;
     }
 
+    .quality-btn {
+      padding: 5px 12px;
+      font-size: 11px;
+      font-family: inherit;
+      background: #181d28;
+      color: #9ca3af;
+      border: 1px solid #374151;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .quality-btn:hover {
+      border-color: #ffd166;
+      color: #ffd166;
+    }
+    .quality-btn.active {
+      background: #2a3142 !important;
+      color: #ffd166 !important;
+      border-color: #ffd166 !important;
+      box-shadow: 0 0 8px rgba(255, 209, 102, 0.25);
+      font-weight: bold;
+    }
+
     /* How to Play Guide Styling */
     .guide-box {
       text-align: left;
@@ -619,8 +642,16 @@
         </div>
       </div>
 
-      <!-- Audio Settings -->
+      <!-- Graphics & Audio Settings -->
       <div style="border-top:1px solid #2b3140; margin-top:16px; padding-top:12px;">
+        <div class="menu-row">
+          <label>Graphics Quality</label>
+          <div style="display:flex; gap:6px;">
+            <button class="quality-btn" data-quality="low">⚡ Low (Fastest)</button>
+            <button class="quality-btn" data-quality="medium">⚖️ Medium</button>
+            <button class="quality-btn active" data-quality="high">✨ High (Best)</button>
+          </div>
+        </div>
         <div class="menu-row">
           <label>Ambient Lore Music</label>
           <input type="range" id="music-volume" class="menu-slider" min="0" max="1" step="0.05" value="0.8">

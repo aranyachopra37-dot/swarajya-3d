@@ -82,6 +82,11 @@ export class Render3D {
       projectileStone: new THREE.MeshStandardMaterial({ color: 0x57606f, roughness: 0.9 }),
       chainLineMat: new THREE.LineBasicMaterial({ color: 0xffd166, linewidth: 2, transparent: true, opacity: 0.75 }),
     };
+    this.quality = "high";
+  }
+
+  setQuality(quality) {
+    this.quality = quality;
   }
 
   render(sim, alpha, selection = new Set(), dt = 0.016) {
@@ -527,6 +532,11 @@ export class Render3D {
 
       const isMoving = Math.abs(u.x - prevX) > 0.04 || Math.abs(u.y - prevY) > 0.04;
       const elev = this.terrain ? this.terrain.getHeight(curX, curZ) : 0;
+
+      if (this.quality === "low") {
+        mesh.position.set(curX, elev, curZ);
+        continue;
+      }
 
       // 1. Root Position & Walking Bob
       let bobY = 0;

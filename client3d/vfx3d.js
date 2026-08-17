@@ -21,7 +21,12 @@ export class Vfx3D {
     this.vfxGroup = new THREE.Group();
     this.scene.add(this.vfxGroup);
 
+    this.quality = "high";
     this._initCanvasPool();
+  }
+
+  setQuality(quality) {
+    this.quality = quality;
   }
 
   _initCanvasPool() {
