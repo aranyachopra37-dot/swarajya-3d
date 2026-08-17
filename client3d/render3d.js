@@ -81,8 +81,11 @@ export class Render3D {
       projectileArrow: new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.4 }),
       projectileStone: new THREE.MeshStandardMaterial({ color: 0x57606f, roughness: 0.9 }),
       chainLineMat: new THREE.LineBasicMaterial({ color: 0xffd166, linewidth: 2, transparent: true, opacity: 0.75 }),
+      patrolLineMat: new THREE.LineBasicMaterial({ color: 0x4cc9f0, linewidth: 2, transparent: true, opacity: 0.85 }),
+      guardLineMat: new THREE.LineBasicMaterial({ color: 0x7fd48f, linewidth: 2, transparent: true, opacity: 0.85 }),
     };
     this.quality = "high";
+    this.alwaysShowHealthBars = false;
   }
 
   setQuality(quality) {
@@ -130,7 +133,7 @@ export class Render3D {
         const hpPct = Math.max(0, Math.min(1, b.hp / (b.maxHp || 1)));
         hpBar.scale.set(hpPct, 1, 1);
         hpBar.position.x = -(1 - hpPct) * 8;
-        hpBar.parent.visible = selection.has(b.id) || hpPct < 0.98;
+        hpBar.parent.visible = selection.has(b.id) || hpPct < 0.98 || this.alwaysShowHealthBars;
       }
 
       const trainBar = mesh.getObjectByName("trainBar");
@@ -625,10 +628,25 @@ export class Render3D {
         }
       }
 
-      // Selection & Cargo
+      // Selection, Health Bar & Cargo
       const selRing = mesh.getObjectByName("selectionRing");
       if (selRing) {
         selRing.visible = selection.has(u.id);
+      }
+
+      const hb = mesh.getObjectByName("overheadHealthBar");
+      if (hb) {
+        const isSelected = selection.has(u.id);
+        const isHurt = (u.hp || 0) < (u.maxHp || 100);
+        hb.visible = isSelected || isHurt || this.alwaysShowHealthBars;
+        if (hb.visible) {
+          const pct = Math.max(0, Math.min(1.0, (u.hp || 0) / (u.maxHp || 100)));
+          const fill = hb.getObjectByName("healthFill");
+          if (fill) {
+            fill.scale.set(pct, 1, 1);
+            fill.position.x = -(1.0 - pct) * 3.9;
+          }
+        }
       }
 
       const cargoGold = mesh.getObjectByName("cargoGold");
@@ -1111,6 +1129,24 @@ export class Render3D {
     selRing.visible = false;
     group.add(selRing);
 
+    // Overhead Floating Health Bar
+    const hbGroup = new THREE.Group();
+    hbGroup.name = "overheadHealthBar";
+    hbGroup.position.y = (uType === "senapati" || uType === "ratha" || uType === "catapult") ? 22 : 16;
+
+    const hbBg = new THREE.Mesh(new THREE.PlaneGeometry(8.0, 1.2), this.materials.healthBg);
+    hbBg.rotation.x = -Math.PI / 4;
+    hbGroup.add(hbBg);
+
+    const hbFill = new THREE.Mesh(new THREE.PlaneGeometry(7.8, 1.0), this.materials.healthFill);
+    hbFill.name = "healthFill";
+    hbFill.rotation.x = -Math.PI / 4;
+    hbFill.position.z = 0.05;
+    hbGroup.add(hbFill);
+
+    hbGroup.visible = false;
+    group.add(hbGroup);
+
     return group;
   }
 
@@ -1121,21 +1157,40 @@ export class Render3D {
     const activeUnitIds = new Set();
 
     for (const u of sim.units) {
-      if (u.spec && u.spec.worker && u.job && selection.has(u.id)) {
+      if (u.job && selection.has(u.id)) {
         let targetX = null;
         let targetZ = null;
+        let lineMat = this.materials.chainLineMat;
 
-        if (u.job.tx !== undefined && u.job.ty !== undefined) {
-          targetX = (u.job.tx + 0.5) * TILE;
-          targetZ = (u.job.ty + 0.5) * TILE;
-        } else if (u.job.id) {
-          const site = (sim.sites || []).find(s => s.id === u.job.id);
-          const building = sim.buildings.find(b => b.id === u.job.id);
-          const tgt = site || building;
-          if (tgt) {
-            const tiles = tgt.spec ? tgt.spec.tiles : 2;
-            targetX = (tgt.tx + tiles / 2) * TILE;
-            targetZ = (tgt.ty + tiles / 2) * TILE;
+        if (u.job.kind === "patrol") {
+          // Render patrol waypoint loop line
+          const isTgt1 = u.job.target === 1;
+          const ptx = isTgt1 ? u.job.x1 : u.job.x0;
+          const pty = isTgt1 ? u.job.y1 : u.job.y0;
+          targetX = (ptx + 0.5) * TILE;
+          targetZ = (pty + 0.5) * TILE;
+          lineMat = this.materials.patrolLineMat;
+        } else if (u.job.kind === "guard") {
+          // Render guard tether line
+          const ally = sim.units.find(a => a.id === u.job.targetId && a.hp > 0) || sim.buildings.find(b => b.id === u.job.targetId && b.hp > 0);
+          if (ally) {
+            targetX = ally.x;
+            targetZ = ally.y;
+            lineMat = this.materials.guardLineMat;
+          }
+        } else if (u.spec && u.spec.worker) {
+          if (u.job.tx !== undefined && u.job.ty !== undefined) {
+            targetX = (u.job.tx + 0.5) * TILE;
+            targetZ = (u.job.ty + 0.5) * TILE;
+          } else if (u.job.id) {
+            const site = (sim.sites || []).find(s => s.id === u.job.id);
+            const building = sim.buildings.find(b => b.id === u.job.id);
+            const tgt = site || building;
+            if (tgt) {
+              const tiles = tgt.spec ? tgt.spec.tiles : 2;
+              targetX = (tgt.tx + tiles / 2) * TILE;
+              targetZ = (tgt.ty + tiles / 2) * TILE;
+            }
           }
         }
 
@@ -1148,16 +1203,17 @@ export class Render3D {
 
           const points = [
             new THREE.Vector3(u.x, uElev + 7, u.y),
-            new THREE.Vector3((u.x + targetX) / 2, Math.max(uElev, tElev) + 12, (u.y + targetZ) / 2),
+            new THREE.Vector3((u.x + targetX) / 2, Math.max(uElev, tElev) + 10, (u.y + targetZ) / 2),
             new THREE.Vector3(targetX, tElev + 4, targetZ),
           ];
 
           if (!line) {
             const geo = new THREE.BufferGeometry().setFromPoints(points);
-            line = new THREE.Line(geo, this.materials.chainLineMat);
+            line = new THREE.Line(geo, lineMat);
             this.chainLines.set(u.id, line);
             this.entityGroup.add(line);
           } else {
+            line.material = lineMat;
             line.geometry.setFromPoints(points);
           }
         }

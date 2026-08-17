@@ -2892,6 +2892,22 @@ export function queueStance(sim, owner, unitIds, stance) {
   return { ok: true };
 }
 
+/** Orders units to patrol continuously between origin and destination waypoint */
+export function queuePatrol(sim, owner, unitIds, tx, ty) {
+  sim.inputs.push({
+    tick: sim.tick + 1, kind: "patrol", owner, unitIds: [...unitIds], tx, ty,
+  });
+  return { ok: true };
+}
+
+/** Orders units to guard and follow a friendly unit, hero, or structure */
+export function queueGuard(sim, owner, unitIds, targetId) {
+  sim.inputs.push({
+    tick: sim.tick + 1, kind: "guard", owner, unitIds: [...unitIds], targetId,
+  });
+  return { ok: true };
+}
+
 /** Can these actually form up? Answered here so the interface can say why. */
 export function canForm(sim, owner, unitIds) {
   const picked = sim.units.filter(
@@ -3302,6 +3318,52 @@ function applyDueInputs(sim) {
       }
       say(sim, `Troops switch to ${input.stance.replace('_', ' ').toUpperCase()} stance.`);
       sound(sim, "order", input.owner);
+      continue;
+    }
+
+    if (input.kind === "patrol") {
+      for (const id of input.unitIds) {
+        const unit = sim.units.find(u => u.id === id && u.owner === input.owner);
+        if (!unit) continue;
+        unit.plan.length = 0;
+        abandonJob(sim, unit);
+        unit.order = null;
+        unit.chaseId = null;
+        unit.job = {
+          kind: "patrol",
+          x0: toTile(unit.x),
+          y0: toTile(unit.y),
+          x1: input.tx,
+          y1: input.ty,
+          target: 1,
+        };
+      }
+      say(sim, `Troops assigned to continuous patrol.`);
+      sound(sim, "order", input.owner);
+      continue;
+    }
+
+    if (input.kind === "guard") {
+      const target = sim.units.find(u => u.id === input.targetId) || sim.buildings.find(b => b.id === input.targetId);
+      if (target) {
+        for (const id of input.unitIds) {
+          const unit = sim.units.find(u => u.id === id && u.owner === input.owner);
+          if (!unit || unit.id === target.id) continue;
+          unit.plan.length = 0;
+          abandonJob(sim, unit);
+          unit.order = null;
+          unit.chaseId = null;
+          unit.job = {
+            kind: "guard",
+            targetId: target.id,
+          };
+          unit.stance = "defensive";
+          unit.guardX = target.x;
+          unit.guardY = target.y;
+        }
+        say(sim, `Troops assigned to guard ${target.spec ? target.spec.name : "target"}.`);
+        sound(sim, "order", input.owner);
+      }
       continue;
     }
 
@@ -4761,6 +4823,34 @@ function targetFor(sim, unit) {
       if (there) return { key: `at:${there.id}`, goals: approachRing(sim, there) };
       return null;
     }
+    if (unit.job.kind === "patrol") {
+      const isTarget1 = unit.job.target === 1;
+      const ptx = isTarget1 ? unit.job.x1 : unit.job.x0;
+      const pty = isTarget1 ? unit.job.y1 : unit.job.y0;
+      return { key: `to:${ptx},${pty}`, goals: [[ptx, pty]] };
+    }
+    if (unit.job.kind === "guard") {
+      const guardedUnit = sim.units.find(u => u.id === unit.job.targetId && u.hp > 0);
+      if (guardedUnit) {
+        const dx = guardedUnit.x - unit.x;
+        const dy = guardedUnit.y - unit.y;
+        if (dx * dx + dy * dy > 45 * 45) {
+          const gtx = toTile(guardedUnit.x);
+          const gty = toTile(guardedUnit.y);
+          return { key: `to:${gtx},${gty}`, goals: [[gtx, gty]] };
+        }
+        return null;
+      }
+      const guardedBldg = sim.buildings.find(b => b.id === unit.job.targetId && b.hp > 0);
+      if (guardedBldg) {
+        if (gapTo(guardedBldg, unit.x, unit.y) > 50 * 50) {
+          return { key: `at:${guardedBldg.id}`, goals: approachRing(sim, guardedBldg) };
+        }
+        return null;
+      }
+      unit.job = null;
+      return null;
+    }
   }
 
   if (unit.order) {
@@ -4847,6 +4937,10 @@ function moveUnits(sim) {
       const dy = gy - unit.y;
       const far = Math.sqrt(dx * dx + dy * dy);
       if (far < 2) {
+        if (unit.job && unit.job.kind === "patrol") {
+          unit.job.target = unit.job.target === 1 ? 0 : 1;
+          continue;
+        }
         if (unit.order && !unit.job && unit.chaseId === null) unit.order = null;
         continue;
       }
@@ -4877,9 +4971,11 @@ function moveUnits(sim) {
       );
 
       if (gap < 2.0 || (nearOccupier && gap < (unit.spec.radius || 7) * 2.5)) {
-        // Arrived. A move order is spent on arrival — without this a unit that
-        // is shoved off its tile by a neighbour walks doggedly back to it for
-        // the rest of the match instead of holding the line where it was put.
+        // Arrived.
+        if (unit.job && unit.job.kind === "patrol") {
+          unit.job.target = unit.job.target === 1 ? 0 : 1;
+          continue;
+        }
         if (unit.order && !unit.job && unit.chaseId === null) {
           unit.order = null;
           continue;

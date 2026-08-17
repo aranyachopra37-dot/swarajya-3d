@@ -28,7 +28,7 @@
 import {
   step, queueBuild, queueTrain, queueOrder, queueAttack, queueHold, queueRally,
   queueErect, queueConvert, queueDisband, queueResign, queueRaise, queueForm,
-  queueFormation, queueStance,
+  queueFormation, queueStance, queuePatrol, queueGuard,
   queueDiplomacy, queueTribute, queueChat, queueCast,
   RESOURCES,
 } from "./sim.js";
@@ -243,6 +243,10 @@ export function applyCommand(sim, owner, cmd) {
       return queueFormation(sim, owner, cmd.units, cmd.formation);
     case "stance":
       return queueStance(sim, owner, cmd.units, cmd.stance);
+    case "patrol":
+      return queuePatrol(sim, owner, cmd.units, cmd.tx, cmd.ty);
+    case "guard":
+      return queueGuard(sim, owner, cmd.units, cmd.targetId);
     case "dip":
       return queueDiplomacy(sim, owner, cmd.target, cmd.stance);
     case "trib":
@@ -276,6 +280,8 @@ export const cmd = {
   form: (units) => ({ k: "g", units: [...units] }),
   formation: (units, formation) => ({ k: "formation", units: [...units], formation }),
   stance: (units, stance) => ({ k: "stance", units: [...units], stance }),
+  patrol: (units, tx, ty) => ({ k: "patrol", units: [...units], tx, ty }),
+  guard: (units, targetId) => ({ k: "guard", units: [...units], targetId }),
   diplomacy: (target, stance) => ({ k: "dip", target, stance }),
   tribute: (target, resource, amount) => ({ k: "trib", target, resource, amount }),
   chat: (text, target = -1) => ({ k: "chat", text, target }),

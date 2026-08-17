@@ -43,6 +43,11 @@ class Swarajya3DApp {
     this.isBoxSelecting = false;
     this.selectBoxEl = document.getElementById("select-box");
 
+    this.controlGroups = new Map();
+    this.lastGroupTap = { key: null, time: 0 };
+    this.orderMode = null;
+    this.alwaysShowHealthBars = false;
+
     this._initThree();
     this._initSim(this.currentMapId);
     this._initInput();
@@ -267,20 +272,63 @@ class Swarajya3DApp {
       } else if (e.code === "Space") {
         e.preventDefault();
         this._focusCameraOnSelectionOrBase();
+      } else if (e.key === "Alt" || e.key === "Tab") {
+        e.preventDefault();
+        this.alwaysShowHealthBars = !this.alwaysShowHealthBars;
+        if (this.renderer3D) this.renderer3D.alwaysShowHealthBars = this.alwaysShowHealthBars;
       } else if (e.key === "Escape") {
         if (this.placingBuildingType) {
           this.placingBuildingType = null;
           this.ghostMesh.visible = false;
+        } else if (this.orderMode) {
+          this.orderMode = null;
+          this.cursors.setCursor("default");
         } else if (this.selection.size > 0) {
           this.selection.clear();
           this._updateContextualHUD();
         } else {
           this._toggleGameMenu();
         }
+      } else if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
+        // Control Group Binding: Ctrl + 1..9
+        e.preventDefault();
+        const grp = parseInt(e.key);
+        const selIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer));
+        if (selIds.length > 0) {
+          this.controlGroups.set(grp, new Set(selIds));
+          this.loreAudio.playWarDrum(80, 0.6);
+          this._renderControlGroupBadges();
+        }
+      } else if (!e.ctrlKey && !e.altKey && e.key >= '1' && e.key <= '9') {
+        // Control Group Recall: 1..9 (Single tap to select, Double tap to center camera)
+        const grp = parseInt(e.key);
+        if (this.controlGroups.has(grp)) {
+          const grpSet = this.controlGroups.get(grp);
+          const validIds = Array.from(grpSet).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer && u.hp > 0));
+          if (validIds.length > 0) {
+            this.selection = new Set(validIds);
+            this._updateContextualHUD();
+            const now = Date.now();
+            if (this.lastGroupTap.key === grp && (now - this.lastGroupTap.time) < 380) {
+              const units = this.sim.units.filter(u => validIds.includes(u.id));
+              const avgX = units.reduce((acc, u) => acc + u.x, 0) / units.length;
+              const avgZ = units.reduce((acc, u) => acc + u.y, 0) / units.length;
+              this.rtsCamera.target.set(avgX, 0, avgZ);
+              this.loreAudio.playTempleBell(720);
+            }
+            this.lastGroupTap = { key: grp, time: now };
+          }
+        }
       } else if (this.selection.size > 0) {
         const selIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer));
         if (selIds.length > 0) {
-          if (e.key === "f" || e.key === "F") {
+          if (e.key === "p" || e.key === "P") {
+            this.orderMode = "patrol";
+            this.cursors.setCursor("attack");
+          } else if (e.key === "g" || e.key === "G") {
+            this.orderMode = "guard";
+            this.cursors.setCursor("attack");
+          } else if (e.key === "f" || e.key === "F") {
             const forms = ["line", "wedge", "square", "scatter", "none"];
             const curForm = this.sim.units.find(u => u.id === selIds[0])?.formation || "none";
             const nextForm = forms[(forms.indexOf(curForm) + 1) % forms.length];
@@ -729,6 +777,60 @@ class Swarajya3DApp {
   _handleLeftClick(e) {
     const pt = this._getGroundIntersection(e);
     if (!pt) return;
+
+    if (this.orderMode === "patrol") {
+      const tx = Math.floor(pt.x / TILE);
+      const ty = Math.floor(pt.z / TILE);
+      const selIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer));
+      if (selIds.length > 0) {
+        this._dispatchCommand(cmd.patrol(selIds, tx, ty));
+        this.loreAudio.playWarDrum(70, 0.6);
+      }
+      this.orderMode = null;
+      this.cursors.setCursor("default");
+      this._updateContextualHUD();
+      return;
+    }
+
+    if (this.orderMode === "guard") {
+      const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
+      let target = null;
+      for (const u of this.sim.units) {
+        if (u.owner === this.localPlayer) {
+          const dx = u.x - pt.x;
+          const dz = u.y - pt.z;
+          if (dx * dx + dz * dz <= ((u.spec.radius || 8) + clickRadius) ** 2) {
+            target = u;
+            break;
+          }
+        }
+      }
+      if (!target) {
+        for (const b of this.sim.buildings) {
+          if (b.owner === this.localPlayer) {
+            const bx = (b.tx + b.spec.tiles / 2) * TILE;
+            const bz = (b.ty + b.spec.tiles / 2) * TILE;
+            const half = (b.spec.tiles * TILE) / 2;
+            if (Math.abs(bx - pt.x) <= half + clickRadius && Math.abs(bz - pt.z) <= half + clickRadius) {
+              target = b;
+              break;
+            }
+          }
+        }
+      }
+
+      if (target) {
+        const selIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer));
+        if (selIds.length > 0) {
+          this._dispatchCommand(cmd.guard(selIds, target.id));
+          this.loreAudio.playWarDrum(70, 0.6);
+        }
+      }
+      this.orderMode = null;
+      this.cursors.setCursor("default");
+      this._updateContextualHUD();
+      return;
+    }
 
     const now = performance.now();
     const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
@@ -1341,6 +1443,8 @@ class Swarajya3DApp {
       ];
     } else if (selUnits.length >= 1 && !hasWorker) {
       actions = [
+        { id: "order_patrol", label: "🚶 Patrol", cost: "[P]", desc: "Patrol between current post and waypoint" },
+        { id: "order_guard", label: "🛡️ Guard", cost: "[G]", desc: "Escort and defend an ally or structure" },
         { id: "form_line", label: "⚔️ Line", cost: "[F]", desc: "Pankti: Broad firing front" },
         { id: "form_wedge", label: "🔺 Wedge", cost: "Charge", desc: "Garuda: Shock spearhead" },
         { id: "form_square", label: "🛡️ Square", cost: "Ward", desc: "Vajra: 360 defense box" },
@@ -1366,7 +1470,13 @@ class Swarajya3DApp {
         if (!btn) return;
         const act = btn.dataset.action;
 
-        if (act.startsWith("cast_") && selUnits.length === 1) {
+        if (act === "order_patrol") {
+          this.orderMode = "patrol";
+          this.cursors.setCursor("attack");
+        } else if (act === "order_guard") {
+          this.orderMode = "guard";
+          this.cursors.setCursor("attack");
+        } else if (act.startsWith("cast_") && selUnits.length === 1) {
           const abilityId = act.replace("cast_", "");
           const u = selUnits[0];
           this._dispatchCommand(cmd.cast(u.id, abilityId, u.tx, u.ty));
@@ -1405,6 +1515,50 @@ class Swarajya3DApp {
     } else {
       actionBar.style.display = "none";
     }
+  }
+
+  _renderControlGroupBadges() {
+    let container = document.getElementById("control-groups-bar");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "control-groups-bar";
+      container.style.cssText = "position:absolute; bottom:110px; left:20px; display:flex; gap:6px; z-index:120; pointer-events:auto;";
+      document.body.appendChild(container);
+    }
+
+    const chips = [];
+    for (let i = 1; i <= 9; i++) {
+      if (this.controlGroups.has(i)) {
+        const grp = this.controlGroups.get(i);
+        const validCount = Array.from(grp).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer && u.hp > 0)).length;
+        if (validCount > 0) {
+          chips.push(`
+            <button class="grp-chip" data-grp="${i}" style="background:rgba(20,24,36,0.92); border:1px solid #ffd166; color:#fff; border-radius:4px; padding:4px 8px; font-size:11px; font-weight:bold; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+              [${i}] 🛡️ ${validCount}
+            </button>
+          `);
+        }
+      }
+    }
+
+    container.innerHTML = chips.join("");
+    container.onclick = (e) => {
+      const btn = e.target.closest(".grp-chip");
+      if (!btn) return;
+      const grp = parseInt(btn.dataset.grp);
+      if (this.controlGroups.has(grp)) {
+        const validIds = Array.from(this.controlGroups.get(grp)).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer && u.hp > 0));
+        if (validIds.length > 0) {
+          this.selection = new Set(validIds);
+          this._updateContextualHUD();
+          const units = this.sim.units.filter(u => validIds.includes(u.id));
+          const avgX = units.reduce((acc, u) => acc + u.x, 0) / units.length;
+          const avgZ = units.reduce((acc, u) => acc + u.y, 0) / units.length;
+          this.rtsCamera.target.set(avgX, 0, avgZ);
+          this.loreAudio.playTempleBell(720);
+        }
+      }
+    };
   }
 
   _onResize() {
