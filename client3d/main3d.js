@@ -702,20 +702,63 @@ class Swarajya3DApp {
     const pt = this._getGroundIntersection(e);
     if (!pt) return;
 
-    this.selection.clear();
+    const now = performance.now();
     const clickRadius = Math.max(14, this.rtsCamera.distance * 0.03);
 
+    // Check if player clicked an owned unit
+    let clickedUnit = null;
     for (const u of this.sim.units) {
       if (u.owner === this.localPlayer) {
         const dx = u.x - pt.x;
         const dz = u.y - pt.z;
-        if (dx * dx + dz * dz <= (u.radius + clickRadius) ** 2) {
-          this.selection.add(u.id);
-          this._updateContextualHUD();
-          return;
+        if (dx * dx + dz * dz <= ((u.spec.radius || 8) + clickRadius) ** 2) {
+          clickedUnit = u;
+          break;
         }
       }
     }
+
+    if (clickedUnit) {
+      const isDoubleClick = (
+        this.lastClickTarget &&
+        (this.lastClickTarget.id === clickedUnit.id || this.lastClickTarget.specId === clickedUnit.spec.id) &&
+        (now - this.lastClickTarget.time) < 400
+      );
+
+      this.selection.clear();
+
+      if (isDoubleClick) {
+        // DOUBLE CLICK: Select ALL friendly units of the same type within screen radius!
+        const selectRadius = 450;
+        let count = 0;
+        for (const u of this.sim.units) {
+          if (u.owner === this.localPlayer && u.spec.id === clickedUnit.spec.id) {
+            const dx = u.x - clickedUnit.x;
+            const dz = u.y - clickedUnit.y;
+            if (dx * dx + dz * dz <= selectRadius * selectRadius) {
+              this.selection.add(u.id);
+              count++;
+            }
+          }
+        }
+        this.loreAudio.playWarDrum(70, 0.75);
+        this.lastClickTarget = null;
+      } else {
+        // SINGLE CLICK: Select just this unit
+        this.selection.add(clickedUnit.id);
+        this.lastClickTarget = {
+          id: clickedUnit.id,
+          specId: clickedUnit.spec.id,
+          time: now,
+        };
+      }
+
+      this._updateContextualHUD();
+      return;
+    }
+
+    this.lastClickTarget = null;
+    this.selection.clear();
 
     for (const b of this.sim.buildings) {
       if (b.owner === this.localPlayer) {

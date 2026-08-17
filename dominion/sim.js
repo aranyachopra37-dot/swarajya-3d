@@ -4766,12 +4766,20 @@ function moveUnits(sim) {
       const dx = cx - unit.x;
       const dy = cy - unit.y;
       const gap = Math.sqrt(dx * dx + dy * dy);
-      if (gap < 1.5) {
+
+      // Check if destination is already occupied by a stationed unit
+      const nearOccupier = hash.near(cx, cy).some(
+        other => other.self !== unit && (other.x - cx) ** 2 + (other.y - cy) ** 2 < (unit.spec.radius + other.spec.radius) ** 2
+      );
+
+      if (gap < 2.0 || (nearOccupier && gap < (unit.spec.radius || 7) * 2.5)) {
         // Arrived. A move order is spent on arrival — without this a unit that
         // is shoved off its tile by a neighbour walks doggedly back to it for
         // the rest of the match instead of holding the line where it was put.
-        if (unit.order && !unit.job && unit.chaseId === null) unit.order = null;
-        continue;
+        if (unit.order && !unit.job && unit.chaseId === null) {
+          unit.order = null;
+          continue;
+        }
       }
       dir = { x: dx / gap, y: dy / gap };
     }
@@ -4779,28 +4787,25 @@ function moveUnits(sim) {
     let vx = dir.x;
     let vy = dir.y;
 
-    // Shove apart from neighbours, or everyone converges into one pixel and the
-    // army reads as a single blob. Read from the frozen snapshot, never from
-    // live positions — see the note at the top of this function.
+    // Shove apart from neighbours during movement
     for (const other of hash.near(unit.x, unit.y)) {
-      if (other.self === unit) continue;
+      if (other.self === unit || other.self.spec.flies) continue;
       const dx = unit.x - other.x;
       const dy = unit.y - other.y;
       const d2 = dx * dx + dy * dy;
-      const want = unit.spec.radius + other.spec.radius;
+      const want = (unit.spec.radius || 7) + (other.spec.radius || 7) + 2;
       if (d2 > want * want || d2 === 0) continue;
       const d = Math.sqrt(d2);
-      vx += (dx / d) * SEPARATION;
-      vy += (dy / d) * SEPARATION;
+      const force = ((want - d) / want) * 1.2;
+      vx += (dx / d) * force;
+      vy += (dy / d) * force;
     }
 
     const len = Math.sqrt(vx * vx + vy * vy);
     if (len === 0) continue;
 
     // Ground the unit is standing on slows it, using the same cost column the
-    // flow field routes by. Without this the pathfinding is a liar: it detours
-    // around a wood because a wood is expensive, and then units cross woods at
-    // full speed, so the detour is pure loss and the terrain is just paint.
+    // flow field routes by.
     const speed = (paceOf(sim, unit) / TICKS_PER_SECOND) * speedFactor(sim.grid, tx, ty);
     const nx = unit.x + (vx / len) * speed;
     const ny = unit.y + (vy / len) * speed;
@@ -4816,6 +4821,63 @@ function moveUnits(sim) {
   for (const [unit, at] of moved) {
     unit.x = at.x;
     unit.y = at.y;
+  }
+
+  // PHYSICAL BODY COLLISION & HARD RELAXATION PASS (No Ghost Overlaps)
+  // Ensures units never merge or occupy the exact same coordinate.
+  for (let iter = 0; iter < 2; iter++) {
+    const rHash = spatialHash(sim.units.map(u => ({ x: u.x, y: u.y, spec: u.spec, self: u })), 36);
+    for (const u of sim.units) {
+      if (u.spec.flies) continue; // Flying creatures fly overhead
+      for (const other of rHash.near(u.x, u.y)) {
+        if (other.self === u || other.self.spec.flies) continue;
+        const v = other.self;
+        if (u.id >= v.id) continue; // Resolve each unit pair once
+
+        const dx = u.x - v.x;
+        const dy = u.y - v.y;
+        const distSq = dx * dx + dy * dy;
+        const minDist = (u.spec.radius || 7) + (v.spec.radius || 7);
+        const minDistSq = minDist * minDist;
+
+        if (distSq < minDistSq) {
+          let d = Math.sqrt(distSq);
+          let nx, ny;
+          if (d < 0.001) {
+            // Exact overlap tie-break: deterministic angle based on unit IDs
+            const angle = ((u.id * 37 + v.id * 19) % 360) * (Math.PI / 180);
+            nx = Math.cos(angle);
+            ny = Math.sin(angle);
+            d = 0.001;
+          } else {
+            nx = dx / d;
+            ny = dy / d;
+          }
+
+          const overlap = minDist - d;
+          const pushU = v.spec.fixed ? overlap : (u.spec.fixed ? 0 : overlap * 0.5);
+          const pushV = u.spec.fixed ? overlap : (v.spec.fixed ? 0 : overlap * 0.5);
+
+          if (pushU > 0) {
+            const ux = u.x + nx * pushU;
+            const uy = u.y + ny * pushU;
+            if (passable(sim.grid, toTile(ux), toTile(uy))) {
+              u.x = ux;
+              u.y = uy;
+            }
+          }
+
+          if (pushV > 0) {
+            const vx2 = v.x - nx * pushV;
+            const vy2 = v.y - ny * pushV;
+            if (passable(sim.grid, toTile(vx2), toTile(vy2))) {
+              v.x = vx2;
+              v.y = vy2;
+            }
+          }
+        }
+      }
+    }
   }
 }
 
