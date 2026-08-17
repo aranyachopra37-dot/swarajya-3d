@@ -155,6 +155,16 @@ export class Render3D {
           trainBar.visible = false;
         }
       }
+
+      if (b.spec && (b.spec.gate || b.spec.id === "gate")) {
+        const leftDoor = mesh.getObjectByName("gateDoorLeft");
+        const rightDoor = mesh.getObjectByName("gateDoorRight");
+        if (leftDoor && rightDoor) {
+          const targetRot = b.isOpen ? Math.PI * 0.45 : 0;
+          leftDoor.rotation.y += (targetRot - leftDoor.rotation.y) * 0.2;
+          rightDoor.rotation.y += (-targetRot - rightDoor.rotation.y) * 0.2;
+        }
+      }
     }
 
     for (const [id, mesh] of this.buildingMeshes.entries()) {
@@ -368,6 +378,58 @@ export class Render3D {
       flame.position.y = 40;
       group.add(flame);
 
+    } else if (bType === "wall") {
+      const wallGeo = new THREE.BoxGeometry(size * 0.96, 12, size * 0.96);
+      const wallMesh = new THREE.Mesh(wallGeo, this.materials.stone);
+      wallMesh.position.y = 6;
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
+      group.add(wallMesh);
+
+      // Crenellations / Merlons on parapet
+      const merlonGeo = new THREE.BoxGeometry(size * 0.28, 3, size * 0.96);
+      const m1 = new THREE.Mesh(merlonGeo, this.materials.stoneDark);
+      m1.position.set(-size * 0.34, 13.5, 0);
+      group.add(m1);
+      const m2 = new THREE.Mesh(merlonGeo, this.materials.stoneDark);
+      m2.position.set(size * 0.34, 13.5, 0);
+      group.add(m2);
+
+    } else if (bType === "gate") {
+      // Gate Arch Frame
+      const postL = new THREE.Mesh(new THREE.BoxGeometry(6, 20, 10), this.materials.stone);
+      postL.position.set(-half * 0.75, 10, 0);
+      postL.castShadow = true;
+      group.add(postL);
+
+      const postR = new THREE.Mesh(new THREE.BoxGeometry(6, 20, 10), this.materials.stone);
+      postR.position.set(half * 0.75, 10, 0);
+      postR.castShadow = true;
+      group.add(postR);
+
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(size * 0.92, 5, 10), this.materials.stoneDark);
+      lintel.position.set(0, 19.5, 0);
+      lintel.castShadow = true;
+      group.add(lintel);
+
+      // Left Door leaf
+      const doorLGroup = new THREE.Group();
+      doorLGroup.name = "gateDoorLeft";
+      doorLGroup.position.set(-half * 0.65, 8.5, 0);
+      const doorL = new THREE.Mesh(new THREE.BoxGeometry(half * 0.65, 15, 2), this.materials.woodDark);
+      doorL.position.set(half * 0.325, 0, 0);
+      doorLGroup.add(doorL);
+      group.add(doorLGroup);
+
+      // Right Door leaf
+      const doorRGroup = new THREE.Group();
+      doorRGroup.name = "gateDoorRight";
+      doorRGroup.position.set(half * 0.65, 8.5, 0);
+      const doorR = new THREE.Mesh(new THREE.BoxGeometry(half * 0.65, 15, 2), this.materials.woodDark);
+      doorR.position.set(-half * 0.325, 0, 0);
+      doorRGroup.add(doorR);
+      group.add(doorRGroup);
+
     } else {
       const boxGeo = new THREE.BoxGeometry(size * 0.8, 12, size * 0.8);
       const boxMesh = new THREE.Mesh(boxGeo, this.materials.stone);
@@ -535,9 +597,16 @@ export class Render3D {
 
       const isMoving = Math.abs(u.x - prevX) > 0.04 || Math.abs(u.y - prevY) > 0.04;
       const elev = this.terrain ? this.terrain.getHeight(curX, curZ) : 0;
+      let wallElev = 0;
+      if (u.mountedOn) {
+        const wallBldg = sim.buildings.find(b => b.id === u.mountedOn);
+        if (wallBldg) {
+          wallElev = (wallBldg.spec.id === "bastion" ? 22 : 12);
+        }
+      }
 
       if (this.quality === "low") {
-        mesh.position.set(curX, elev, curZ);
+        mesh.position.set(curX, elev + wallElev, curZ);
         continue;
       }
 
@@ -548,7 +617,7 @@ export class Render3D {
         bobY = Math.abs(Math.sin(t * 12 + u.id)) * 0.9;
         strideSway = Math.sin(t * 12 + u.id) * 0.05;
       }
-      mesh.position.set(curX, elev + bobY, curZ);
+      mesh.position.set(curX, elev + wallElev + bobY, curZ);
       mesh.rotation.z = strideSway;
 
       if (u.heading !== undefined) {

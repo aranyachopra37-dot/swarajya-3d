@@ -2675,7 +2675,7 @@ function placeSite(sim, owner, type, tx, ty) {
   return site;
 }
 
-function placeBuilding(sim, owner, type, tx, ty, groundUnder = null) {
+export function placeBuilding(sim, owner, type, tx, ty, groundUnder = null) {
   const spec = BUILDINGS[type];
   const tiles = footprint(spec, tx, ty);
   const under =
@@ -2764,6 +2764,21 @@ function destroyBuilding(sim, building) {
 
   sim.buildings = sim.buildings.filter((b) => b !== building);
   sim.fieldsDirty = true;
+
+  // Any units mounted on this wall/bastion are thrown into the nearest open spot
+  for (const u of sim.units) {
+    if (u.mountedOn === building.id) {
+      u.mountedOn = null;
+      u.job = null;
+      u.hp -= 25;
+      const spot = freeSpotNear(sim, toTile(u.x), toTile(u.y));
+      if (spot) {
+        u.x = tileCentre(spot.tx);
+        u.y = tileCentre(spot.ty);
+      }
+    }
+  }
+
   // Every peasant working on this is now working on nothing.
   for (const u of sim.units) {
     if (u.job && u.job.kind === "drop" && u.job.id === building.id) u.job = null;
@@ -2904,6 +2919,14 @@ export function queuePatrol(sim, owner, unitIds, tx, ty) {
 export function queueGuard(sim, owner, unitIds, targetId) {
   sim.inputs.push({
     tick: sim.tick + 1, kind: "guard", owner, unitIds: [...unitIds], targetId,
+  });
+  return { ok: true };
+}
+
+/** Orders ranged units to mount stone fortress walls or ramparts for range & height bonus */
+export function queueMount(sim, owner, unitIds, wallId) {
+  sim.inputs.push({
+    tick: sim.tick + 1, kind: "mount", owner, unitIds: [...unitIds], wallId,
   });
   return { ok: true };
 }
@@ -3091,6 +3114,13 @@ function resolveOrder(sim, unit, tx, ty) {
   );
   if (building && building.owner !== unit.owner) {
     return { kind: "attack", id: building.id, isBuilding: true };
+  }
+  if (building && building.owner === unit.owner) {
+    const isRanged = (unit.spec.range && unit.spec.range >= 50) || unit.spec.id === "archer" || unit.spec.id === "yogini" || unit.spec.id === "acharya";
+    const isDefensiveWall = building.spec.wall || building.spec.gate || building.spec.id === "wall" || building.spec.id === "gate" || building.spec.id === "bastion" || building.spec.id === "watchtower";
+    if (isRanged && isDefensiveWall) {
+      return { kind: "mount", id: building.id };
+    }
   }
 
   return { kind: "move", tx, ty };
@@ -3367,6 +3397,24 @@ function applyDueInputs(sim) {
       continue;
     }
 
+    if (input.kind === "mount") {
+      const bldg = sim.buildings.find(b => b.id === input.wallId && b.owner === input.owner);
+      if (bldg) {
+        for (const id of input.unitIds) {
+          const u = sim.units.find(x => x.id === id && x.owner === input.owner);
+          if (!u) continue;
+          u.plan.length = 0;
+          abandonJob(sim, u);
+          u.order = null;
+          u.chaseId = null;
+          u.job = { kind: "mount", id: bldg.id };
+        }
+        say(sim, `Ranged troops climbing fortress battlements.`);
+        sound(sim, "order", input.owner);
+      }
+      continue;
+    }
+
     if (input.kind === "order") {
       let any = false;
       const validUnits = input.unitIds
@@ -3396,6 +3444,7 @@ function applyDueInputs(sim) {
 
       for (let i = 0; i < validUnits.length; i++) {
         const unit = validUnits[i];
+        unit.mountedOn = null; // Dismount if moving off wall
         if (input.queued) {
           const site = unit.spec.worker
             ? sim.sites.find(
@@ -3599,9 +3648,34 @@ export function step(sim) {
   processAbilitiesAndHazards(sim);
   processHeroesAndAuras(sim);
   processCampaign(sim);
+  updateGates(sim);
   moveUnits(sim);
   fight(sim);
   checkEnd(sim);
+}
+
+function updateGates(sim) {
+  for (const b of sim.buildings) {
+    if (b.spec.gate || b.spec.id === "gate") {
+      let enemyNear = false;
+      let allyNear = false;
+      for (const u of sim.units) {
+        if (u.hp <= 0) continue;
+        const dx = u.x - b.x;
+        const dy = u.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= 90 * 90) {
+          if (u.owner !== b.owner && (!sim.diplomacy || sim.diplomacy[b.owner]?.[u.owner] !== "ally")) {
+            enemyNear = true;
+            break;
+          } else if (u.owner === b.owner || (sim.diplomacy && sim.diplomacy[b.owner]?.[u.owner] === "ally")) {
+            if (d2 <= 55 * 55) allyNear = true;
+          }
+        }
+      }
+      b.isOpen = !enemyNear && allyNear;
+    }
+  }
 }
 
 function processAbilitiesAndHazards(sim) {
@@ -4663,6 +4737,9 @@ function makeUnit(sim, owner, spec, tx, ty) {
     guardX: tx * TILE + 16,
     guardY: ty * TILE + 16,
 
+    // Wall-Mounting Ramparts
+    mountedOn: null,
+
     holding: false,
     targetId: null,
 
@@ -4848,6 +4925,24 @@ function targetFor(sim, unit) {
         }
         return null;
       }
+      unit.job = null;
+      return null;
+    }
+    if (unit.job.kind === "mount") {
+      const bldg = sim.buildings.find(b => b.id === unit.job.id && b.hp > 0);
+      if (bldg) {
+        const dx = bldg.x - unit.x;
+        const dy = bldg.y - unit.y;
+        if (dx * dx + dy * dy > 20 * 20) {
+          return { key: `at:${bldg.id}`, goals: approachRing(sim, bldg) };
+        } else {
+          unit.mountedOn = bldg.id;
+          unit.x = bldg.x;
+          unit.y = bldg.y;
+          return null;
+        }
+      }
+      unit.mountedOn = null;
       unit.job = null;
       return null;
     }
@@ -5170,7 +5265,7 @@ function nearSupply(points, unit) {
 }
 
 function fight(sim) {
-  const hash = spatialHash(sim.units, 128);
+  const hash = spatialHash(sim.units, 256);
 
   // Battalion membership, gathered once. Doing this per hit would be a scan of
   // every unit in the game for every blow struck.
@@ -5190,6 +5285,9 @@ function fight(sim) {
    * into the arithmetic that `acting` exists to keep out of it.
    */
   const land = (target, dmg) => {
+    // 35% height and stone parapet damage reduction when mounted on walls / ramparts
+    if (target.mountedOn) dmg *= 0.65;
+
     if (target.shield > 0) {
       if (target.shield >= dmg) {
         target.shield -= dmg;
@@ -5549,7 +5647,7 @@ function rank(a, b) {
  * a miss that costs a reload and looks like the unit being broken.
  */
 function inReach(unit, thing) {
-  const reach = unit.spec.range;
+  const reach = unit.mountedOn ? Math.round(unit.spec.range * 1.5) : unit.spec.range;
   const d2 = thing.spec.tiles
     ? gapTo(thing, unit.x, unit.y)
     : (thing.x - unit.x) ** 2 + (thing.y - unit.y) ** 2;
@@ -5563,7 +5661,7 @@ function findTarget(sim, unit, hash) {
 
   let best = null;
   let bestD2 = Infinity;
-  const reach = unit.spec.range;
+  const reach = unit.mountedOn ? Math.round(unit.spec.range * 1.5) : unit.spec.range;
 
   const guardRadius = unit.stance === "defensive" ? 140 : (unit.stance === "stand_ground" ? reach : Infinity);
   const guardX = unit.guardX ?? unit.x;

@@ -1413,6 +1413,8 @@ class Swarajya3DApp {
       actions = [
         { id: "build_farm", label: "Kshetra (Farm)", cost: "40g 30w", desc: "Grows grain" },
         { id: "build_warehouse", label: "Kosha (Warehouse)", cost: "60g 50w", desc: "Storehouse" },
+        { id: "build_wall", label: "Prakara (Wall)", cost: "8g 18w", desc: "Stone wall segment with mountable ramparts" },
+        { id: "build_gate", label: "Dwara (Gate)", cost: "45g 60w", desc: "Fortified gatehouse with auto-opening doors" },
         { id: "build_barracks", label: "Akhara (Barracks)", cost: "120g 90w", desc: "Martial training" },
         { id: "build_armory", label: "Khadga Shala (Armory)", cost: "160g 140w", desc: "Foundry & War Chariots" },
         { id: "build_watchBeacon", label: "Dhvaja (Beacon)", cost: "50g 80w", desc: "Mountain watch beacon" },
