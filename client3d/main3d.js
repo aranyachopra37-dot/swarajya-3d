@@ -277,6 +277,34 @@ class Swarajya3DApp {
         } else {
           this._toggleGameMenu();
         }
+      } else if (this.selection.size > 0) {
+        const selIds = Array.from(this.selection).filter(id => this.sim.units.some(u => u.id === id && u.owner === this.localPlayer));
+        if (selIds.length > 0) {
+          if (e.key === "f" || e.key === "F") {
+            const forms = ["line", "wedge", "square", "scatter", "none"];
+            const curForm = this.sim.units.find(u => u.id === selIds[0])?.formation || "none";
+            const nextForm = forms[(forms.indexOf(curForm) + 1) % forms.length];
+            this._dispatchCommand(cmd.formation(selIds, nextForm));
+            this.loreAudio.playWarDrum(70, 0.6);
+            this._updateContextualHUD();
+          } else if (e.key === "z" || e.key === "Z") {
+            this._dispatchCommand(cmd.stance(selIds, "aggressive"));
+            this.loreAudio.playWarDrum(80, 0.6);
+            this._updateContextualHUD();
+          } else if (e.key === "x" || e.key === "X") {
+            this._dispatchCommand(cmd.stance(selIds, "defensive"));
+            this.loreAudio.playWarDrum(65, 0.6);
+            this._updateContextualHUD();
+          } else if (e.key === "c" || e.key === "C") {
+            this._dispatchCommand(cmd.stance(selIds, "stand_ground"));
+            this.loreAudio.playWarDrum(50, 0.6);
+            this._updateContextualHUD();
+          } else if (e.key === "v" || e.key === "V") {
+            this._dispatchCommand(cmd.stance(selIds, "hold_fire"));
+            this.loreAudio.playWarDrum(40, 0.4);
+            this._updateContextualHUD();
+          }
+        }
       }
     });
 
@@ -1115,12 +1143,36 @@ class Swarajya3DApp {
         `;
       }
 
+      let stanceBadge = "";
+      if (!u.spec.worker) {
+        const stanceNames = {
+          aggressive: "⚔️ Aggressive [Z]",
+          defensive: "🛡️ Defensive [X]",
+          stand_ground: "🛑 Stand Ground [C]",
+          hold_fire: "🤫 Hold Fire [V]"
+        };
+        const formNames = {
+          none: "Standard",
+          line: "Pankti (Line)",
+          wedge: "Garuda (Wedge)",
+          square: "Vajra (Square)",
+          scatter: "Skirmish (Scatter)"
+        };
+        stanceBadge = `
+          <div style="display:flex; justify-content:space-between; gap:6px; margin-top:6px; font-size:10px;">
+            <span style="background:#1f2937; color:#ffd166; padding:2px 6px; border-radius:4px; border:1px solid #374151;">${stanceNames[u.stance || "aggressive"]}</span>
+            <span style="background:#1f2937; color:#7fd48f; padding:2px 6px; border-radius:4px; border:1px solid #374151;">${formNames[u.formation || "none"]} [F]</span>
+          </div>
+        `;
+      }
+
       infoCard.innerHTML = `
         <div class="sel-title">${u.spec.name}</div>
         <div class="sel-bar"><div class="sel-fill" style="width:${hpPct}%"></div></div>
         <div class="sel-stats">HP: ${Math.round(u.hp)} / ${u.maxHp} | Dmg: ${u.spec.damage || 0}</div>
         ${carryHtml}
         ${heroHtml}
+        ${stanceBadge}
       `;
       infoCard.style.display = "block";
     } else if (selBuildings.length === 1) {
@@ -1191,7 +1243,18 @@ class Swarajya3DApp {
       `;
       infoCard.style.display = "block";
     } else if (selUnits.length > 1) {
-      infoCard.innerHTML = `<div class="sel-title">${selUnits.length} Units Selected</div>`;
+      const u0 = selUnits[0];
+      const formNames = {
+        none: "Standard",
+        line: "Pankti (Line)",
+        wedge: "Garuda (Wedge)",
+        square: "Vajra (Square)",
+        scatter: "Skirmish (Scatter)"
+      };
+      infoCard.innerHTML = `
+        <div class="sel-title">${selUnits.length} Units Selected</div>
+        <div style="margin-top:6px; font-size:11px; color:#7fd48f;">Formation: <strong>${formNames[u0.formation || "none"]}</strong> [F]</div>
+      `;
       infoCard.style.display = "block";
     }
   }
@@ -1276,11 +1339,16 @@ class Swarajya3DApp {
         { id: "train_catapult", label: "Shila Yantra (Catapult)", cost: "180g 150w", desc: "Siege engine" },
         { id: "train_ram", label: "Dwaraghna (Ram)", cost: "140g 120w", desc: "Gate ram" },
       ];
-    } else if (selUnits.length > 1) {
+    } else if (selUnits.length >= 1 && !hasWorker) {
       actions = [
-        { id: "form_line", label: "Pankti (Line)", cost: "⚔️", desc: "Broad front" },
-        { id: "form_wedge", label: "Garuda (Wedge)", cost: "⚡", desc: "Breaching charge" },
-        { id: "form_square", label: "Vajra (Square)", cost: "🛡️", desc: "360 defense" },
+        { id: "form_line", label: "⚔️ Line", cost: "[F]", desc: "Pankti: Broad firing front" },
+        { id: "form_wedge", label: "🔺 Wedge", cost: "Charge", desc: "Garuda: Shock spearhead" },
+        { id: "form_square", label: "🛡️ Square", cost: "Ward", desc: "Vajra: 360 defense box" },
+        { id: "form_scatter", label: "💨 Scatter", cost: "Skirmish", desc: "Dispersed to dodge siege" },
+        { id: "stance_aggressive", label: "⚔️ Aggressive", cost: "[Z]", desc: "Pursue foes on sight" },
+        { id: "stance_defensive", label: "🛡️ Defensive", cost: "[X]", desc: "Guard local ground" },
+        { id: "stance_stand_ground", label: "🛑 Stand Ground", cost: "[C]", desc: "Hold position strictly" },
+        { id: "stance_hold_fire", label: "🤫 Hold Fire", cost: "[V]", desc: "Stealth / No auto-attack" },
       ];
     }
 
@@ -1320,12 +1388,16 @@ class Swarajya3DApp {
           this._dispatchCommand(cmd.train(factory.id, "catapult"));
         } else if (act === "train_ram" && factory) {
           this._dispatchCommand(cmd.train(factory.id, "ram"));
-        } else if (act === "form_line") {
-          this._dispatchCommand(cmd.form(Array.from(this.selection), "line"));
-        } else if (act === "form_wedge") {
-          this._dispatchCommand(cmd.form(Array.from(this.selection), "wedge"));
-        } else if (act === "form_square") {
-          this._dispatchCommand(cmd.form(Array.from(this.selection), "square"));
+        } else if (act.startsWith("form_")) {
+          const f = act.replace("form_", "");
+          this._dispatchCommand(cmd.formation(Array.from(this.selection), f));
+          this.loreAudio.playWarDrum(70, 0.6);
+          this._updateContextualHUD();
+        } else if (act.startsWith("stance_")) {
+          const s = act.replace("stance_", "");
+          this._dispatchCommand(cmd.stance(Array.from(this.selection), s));
+          this.loreAudio.playWarDrum(65, 0.6);
+          this._updateContextualHUD();
         } else if (act.startsWith("build_")) {
           this.placingBuildingType = act.replace("build_", "");
         }

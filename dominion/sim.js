@@ -2876,6 +2876,22 @@ export function queueForm(sim, owner, unitIds) {
   return { ok: true };
 }
 
+/** Sets the layout formation: "none" | "line" | "wedge" | "square" | "scatter" */
+export function queueFormation(sim, owner, unitIds, formation) {
+  sim.inputs.push({
+    tick: sim.tick + 1, kind: "formation", owner, unitIds: [...unitIds], formation,
+  });
+  return { ok: true };
+}
+
+/** Sets combat stance: "aggressive" | "defensive" | "stand_ground" | "hold_fire" */
+export function queueStance(sim, owner, unitIds, stance) {
+  sim.inputs.push({
+    tick: sim.tick + 1, kind: "stance", owner, unitIds: [...unitIds], stance,
+  });
+  return { ok: true };
+}
+
 /** Can these actually form up? Answered here so the interface can say why. */
 export function canForm(sim, owner, unitIds) {
   const picked = sim.units.filter(
@@ -3265,13 +3281,59 @@ function applyDueInputs(sim) {
       continue;
     }
 
+    if (input.kind === "formation") {
+      for (const id of input.unitIds) {
+        const u = sim.units.find(u => u.id === id && u.owner === input.owner);
+        if (u) u.formation = input.formation;
+      }
+      say(sim, `${sim.players[input.owner].name}'s battalion adopts ${input.formation.toUpperCase()} formation.`);
+      sound(sim, "order", input.owner);
+      continue;
+    }
+
+    if (input.kind === "stance") {
+      for (const id of input.unitIds) {
+        const u = sim.units.find(u => u.id === id && u.owner === input.owner);
+        if (u) {
+          u.stance = input.stance;
+          u.guardX = u.x;
+          u.guardY = u.y;
+        }
+      }
+      say(sim, `Troops switch to ${input.stance.replace('_', ' ').toUpperCase()} stance.`);
+      sound(sim, "order", input.owner);
+      continue;
+    }
+
     if (input.kind === "order") {
       let any = false;
-      for (const id of input.unitIds) {
-        const unit = sim.units.find((u) => u.id === id);
-        if (!unit || unit.owner !== input.owner) continue;
-        // Ctrl held: this goes on the end of the list and nothing in flight is
-        // disturbed. A step is stored unresolved — see `pushStep`.
+      const validUnits = input.unitIds
+        .map(id => sim.units.find(u => u.id === id && u.owner === input.owner))
+        .filter(Boolean);
+
+      const count = validUnits.length;
+      let avgX = 0, avgY = 0;
+      for (const u of validUnits) {
+        avgX += u.x;
+        avgY += u.y;
+      }
+      if (count > 0) {
+        avgX /= count;
+        avgY /= count;
+      }
+
+      const destX = input.tx * TILE + 16;
+      const destY = input.ty * TILE + 16;
+      const moveDx = destX - avgX;
+      const moveDy = destY - avgY;
+      const moveDist = Math.sqrt(moveDx * moveDx + moveDy * moveDy) || 1;
+      const fx = moveDx / moveDist;
+      const fy = moveDy / moveDist;
+      const px = -fy;
+      const py = fx;
+
+      for (let i = 0; i < validUnits.length; i++) {
+        const unit = validUnits[i];
         if (input.queued) {
           const site = unit.spec.worker
             ? sim.sites.find(
@@ -3286,14 +3348,50 @@ function applyDueInputs(sim) {
           continue;
         }
 
-        // A plain order replaces the whole list. Anything else and there would
-        // be no way to call off a route once you had drawn it.
         unit.plan.length = 0;
+        unit.guardX = destX;
+        unit.guardY = destY;
 
-        const job = resolveOrder(sim, unit, input.tx, input.ty);
+        let targetTx = input.tx;
+        let targetTy = input.ty;
+
+        // Structured formation slot offsets if multiple units and formation active
+        if (count > 1 && unit.formation && unit.formation !== "none") {
+          let ox = 0, oy = 0;
+          if (unit.formation === "line") {
+            const span = (i - (count - 1) / 2) * 26;
+            ox = px * span;
+            oy = py * span;
+          } else if (unit.formation === "wedge") {
+            const rankIdx = Math.floor(Math.sqrt(i));
+            const posInRank = i - rankIdx * rankIdx;
+            const rankSpread = (posInRank - rankIdx * 0.5) * 24;
+            ox = px * rankSpread - fx * (rankIdx * 20);
+            oy = py * rankSpread - fy * (rankIdx * 20);
+          } else if (unit.formation === "square") {
+            const ringAngle = (i / count) * Math.PI * 2;
+            const ringR = Math.max(20, count * 3.5);
+            ox = Math.cos(ringAngle) * ringR;
+            oy = Math.sin(ringAngle) * ringR;
+          } else if (unit.formation === "scatter") {
+            const r = Math.floor(i / 3);
+            const c = i % 3;
+            ox = px * (c - 1) * 34 - fx * (r - 0.5) * 34;
+            oy = py * (c - 1) * 34 - fy * (r - 0.5) * 34;
+          }
+
+          const stx = toTile(destX + ox);
+          const sty = toTile(destY + oy);
+          if (passable(sim.grid, stx, sty)) {
+            targetTx = stx;
+            targetTy = sty;
+          }
+        }
+
+        const job = resolveOrder(sim, unit, targetTx, targetTy);
         if (job.kind === "move") {
           abandonJob(sim, unit);
-          unit.order = { tx: input.tx, ty: input.ty };
+          unit.order = { tx: targetTx, ty: targetTy };
         } else if (job.kind === "attack") {
           abandonJob(sim, unit);
           unit.order = null;
@@ -4497,6 +4595,12 @@ function makeUnit(sim, owner, spec, tx, ty) {
     buff: null,
     charge: null,
 
+    // Formations & Tactical Stances
+    formation: "none",
+    stance: "aggressive",
+    guardX: tx * TILE + 16,
+    guardY: ty * TILE + 16,
+
     holding: false,
     targetId: null,
 
@@ -5357,19 +5461,25 @@ function inReach(unit, thing) {
 }
 
 function findTarget(sim, unit, hash) {
+  // Stances:
+  // - "hold_fire": Never auto-acquire targets (stealth / hold discipline).
+  if (unit.stance === "hold_fire") return null;
+
   let best = null;
   let bestD2 = Infinity;
   const reach = unit.spec.range;
 
-  // Siege looks for walls FIRST. Everything else shoots the man in front of it,
-  // which is right for a soldier and wrong for a ram: a ram that stops to hit a
-  // spearman is a ram that never reaches the gate, and it loses that fight
-  // anyway.
+  const guardRadius = unit.stance === "defensive" ? 140 : (unit.stance === "stand_ground" ? reach : Infinity);
+  const guardX = unit.guardX ?? unit.x;
+  const guardY = unit.guardY ?? unit.y;
+
+  // Siege looks for walls FIRST.
   if (unit.spec.vsBuilding) {
     for (const structure of [...sim.buildings, ...sim.sites]) {
-      if (structure.owner === unit.owner) continue;
+      if (structure.owner === unit.owner || (sim.diplomacy && sim.diplomacy[unit.owner]?.[structure.owner] === "ally")) continue;
       const d2 = gapTo(structure, unit.x, unit.y);
       if (d2 > reach * reach) continue;
+      if (unit.stance === "defensive" && gapTo(structure, guardX, guardY) > guardRadius * guardRadius) continue;
       if (d2 < bestD2 || (d2 === bestD2 && rank(structure, best) < 0)) {
         best = structure;
         bestD2 = d2;
@@ -5385,6 +5495,11 @@ function findTarget(sim, unit, hash) {
     const dy = other.y - unit.y;
     const d2 = dx * dx + dy * dy;
     if (d2 > reach * reach) continue;
+    if (unit.stance === "defensive") {
+      const gdx = other.x - guardX;
+      const gdy = other.y - guardY;
+      if (gdx * gdx + gdy * gdy > guardRadius * guardRadius) continue;
+    }
     if (d2 < bestD2 || (d2 === bestD2 && rank(other, best) < 0)) {
       best = other;
       bestD2 = d2;
@@ -5392,14 +5507,12 @@ function findTarget(sim, unit, hash) {
   }
   if (best) return best;
 
-  // Structures, once there is no man left to swing at. Foundations count: a
-  // half-built barracks is a legitimate and rewarding thing to catch.
+  // Structures, once there is no man left to swing at.
   for (const structure of [...sim.buildings, ...sim.sites]) {
     if (structure.owner === unit.owner || (sim.diplomacy && sim.diplomacy[unit.owner]?.[structure.owner] === "ally")) continue;
-    // Distance to the footprint, not the centre, or big things are unhittable
-    // from the side.
     const d2 = gapTo(structure, unit.x, unit.y);
     if (d2 > reach * reach) continue;
+    if (unit.stance === "defensive" && gapTo(structure, guardX, guardY) > guardRadius * guardRadius) continue;
     if (d2 < bestD2 || (d2 === bestD2 && rank(structure, best) < 0)) {
       best = structure;
       bestD2 = d2;
