@@ -30,6 +30,7 @@ export class Render3D {
     this.unitMeshes = new Map();       // unitId -> THREE.Group
     this.buildingMeshes = new Map();   // buildingId -> THREE.Group
     this.siteMeshes = new Map();       // siteId -> THREE.Group
+    this.tirthaMeshes = new Map();     // tirthaId -> THREE.Group
     this.projectileMeshes = new Map(); // projKey -> THREE.Mesh
     this.chainLines = new Map();       // unitId -> THREE.Line
     this.rallyLines = new Map();       // buildingId -> THREE.Line
@@ -96,6 +97,7 @@ export class Render3D {
     this.animTime += dt;
     this._renderBuildings(sim, selection);
     this._renderSites(sim, selection);
+    this._renderTirthas(sim, alpha);
     this._renderUnits(sim, alpha, selection);
     this._renderProjectiles(sim, alpha);
     this._renderAssignmentChains(sim, selection);
@@ -571,6 +573,117 @@ export class Render3D {
     barGroup.add(fillMesh);
 
     group.add(barGroup);
+    return group;
+  }
+
+  // --- SACRED HIMALAYAN TIRTHAS (SHRINES) ------------------------------------
+
+  _renderTirthas(sim, alpha) {
+    const { THREE } = this;
+    const activeIds = new Set();
+    const tirthas = sim.tirthas || [];
+    const t = this.animTime;
+
+    for (const s of tirthas) {
+      activeIds.add(s.id);
+      let mesh = this.tirthaMeshes.get(s.id);
+
+      if (!mesh) {
+        mesh = this._createTirthaMesh(s);
+        this.tirthaMeshes.set(s.id, mesh);
+        this.entityGroup.add(mesh);
+      }
+
+      const elev = this.terrain ? this.terrain.getHeight(s.x, s.y) : 0;
+      mesh.position.set(s.x, elev, s.y);
+
+      // Animate hovering sacred relic / crystal
+      const crystal = mesh.getObjectByName("tirthaCrystal");
+      if (crystal) {
+        crystal.position.y = 26 + Math.sin(t * 2.5 + s.id) * 1.5;
+        crystal.rotation.y += 0.025;
+        crystal.rotation.x = Math.sin(t * 1.5) * 0.15;
+      }
+
+      // Capture Aura & Ground Progress Ring
+      const auraRing = mesh.getObjectByName("captureRing");
+      if (auraRing) {
+        const pct = Math.max(0.05, Math.min(1.0, (s.progress || 0) / 100));
+        auraRing.scale.set(pct, pct, pct);
+        if (s.controller !== null && this.materials.ownerRings[s.controller]) {
+          auraRing.material = this.materials.ownerRings[s.controller];
+        } else {
+          auraRing.material = this.materials.selectionRing;
+        }
+      }
+    }
+
+    for (const [id, mesh] of this.tirthaMeshes.entries()) {
+      if (!activeIds.has(id)) {
+        this.entityGroup.remove(mesh);
+        this.tirthaMeshes.delete(id);
+      }
+    }
+  }
+
+  _createTirthaMesh(s) {
+    const { THREE } = this;
+    const group = new THREE.Group();
+    const auraColor = s.spec ? s.spec.auraColor : 0xffaa00;
+
+    // 1. Tiered Octagonal Stone Plinth
+    const baseGeo = new THREE.CylinderGeometry(14, 16, 4, 8);
+    const base = new THREE.Mesh(baseGeo, this.materials.stoneDark);
+    base.position.y = 2;
+    base.receiveShadow = true;
+    group.add(base);
+
+    const stepGeo = new THREE.CylinderGeometry(10, 12, 3, 8);
+    const step = new THREE.Mesh(stepGeo, this.materials.stone);
+    step.position.y = 5.5;
+    step.receiveShadow = true;
+    group.add(step);
+
+    // 2. Sanctum Pillars
+    const colGeo = new THREE.CylinderGeometry(0.8, 0.8, 14, 6);
+    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 2) {
+      const px = Math.cos(angle) * 7.5;
+      const pz = Math.sin(angle) * 7.5;
+      const col = new THREE.Mesh(colGeo, this.materials.stone);
+      col.position.set(px, 14, pz);
+      col.castShadow = true;
+      group.add(col);
+    }
+
+    // 3. Golden Mandapa Pavilion Roof
+    const roofGeo = new THREE.ConeGeometry(11, 7, 8);
+    const roof = new THREE.Mesh(roofGeo, this.materials.roofGold);
+    roof.position.y = 23;
+    roof.castShadow = true;
+    group.add(roof);
+
+    // 4. Floating Sacred Jyoti / Divine Crystal
+    const crystalGeo = new THREE.OctahedronGeometry(3.2, 0);
+    const crystalMat = new THREE.MeshStandardMaterial({
+      color: auraColor,
+      emissive: auraColor,
+      emissiveIntensity: 0.9,
+      roughness: 0.1,
+      metalness: 0.8,
+    });
+    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+    crystal.name = "tirthaCrystal";
+    crystal.position.y = 26;
+    group.add(crystal);
+
+    // 5. Capture Circle Ring on Ground
+    const ringGeo = new THREE.RingGeometry(18, 20.5, 32);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMesh = new THREE.Mesh(ringGeo, this.materials.selectionRing);
+    ringMesh.name = "captureRing";
+    ringMesh.position.y = 0.35;
+    group.add(ringMesh);
+
     return group;
   }
 

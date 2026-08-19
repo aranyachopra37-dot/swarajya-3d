@@ -1176,6 +1176,23 @@ class Swarajya3DApp {
       const timeEl = document.getElementById("hud-time");
       if (timeEl) timeEl.textContent = this.sky.getTimeFormatted();
     }
+
+    // Active Himalayan Tirtha Blessings Banner
+    let tirthaBanner = document.getElementById("hud-tirtha-blessings");
+    if (!tirthaBanner) {
+      tirthaBanner = document.createElement("div");
+      tirthaBanner.id = "hud-tirtha-blessings";
+      tirthaBanner.style.cssText = "position:absolute; top:52px; left:50%; transform:translateX(-50%); display:flex; gap:8px; z-index:110; pointer-events:none;";
+      document.body.appendChild(tirthaBanner);
+    }
+    if (this.sim.tirthas) {
+      const activeTirthas = this.sim.tirthas.filter(t => t.controller === this.localPlayer);
+      tirthaBanner.innerHTML = activeTirthas.map(t => `
+        <div style="background:rgba(20,24,36,0.85); border:1px solid ${t.spec.color}; color:${t.spec.color}; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:bold; box-shadow:0 0 10px ${t.spec.color}44;">
+          ✨ ${t.spec.name}: ${t.spec.desc}
+        </div>
+      `).join("");
+    }
   }
 
   _updateSelectionInfoOnly() {

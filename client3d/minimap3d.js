@@ -205,6 +205,21 @@ export class Minimap3D {
       }
     }
 
+    // 2.5 Draw Sacred Himalayan Tirthas (Shrines)
+    if (this.sim.tirthas) {
+      for (const t of this.sim.tirthas) {
+        const mx = t.x * scaleX;
+        const my = t.y * scaleY;
+        ctx.fillStyle = t.controller === localPlayer ? "#7fd48f" : (t.controller !== null ? "#e63946" : t.spec.color);
+        ctx.beginPath();
+        ctx.arc(mx, my, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+    }
+
     // 3. Draw Units
     for (const u of this.sim.units) {
       const mx = u.x * scaleX;

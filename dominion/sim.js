@@ -2311,7 +2311,50 @@ export const SCENARIOS = {
     ],
   },
 };
-export const SCENARIO_IDS = Object.keys(SCENARIOS);
+export const TIRTHAS = {
+  surya: {
+    id: "surya",
+    name: "Surya Tirtha",
+    title: "Solar Sanctum",
+    color: "#ffaa00",
+    auraColor: 0xffaa00,
+    desc: "+15% Army Damage & 1.25x Crop Harvest Yield",
+    buffs: { dmgMul: 1.15, cropMul: 1.25 },
+  },
+  vayu: {
+    id: "vayu",
+    name: "Vayu Peeth",
+    title: "Shrine of the Gales",
+    color: "#00d4ff",
+    auraColor: 0x00d4ff,
+    desc: "+18% Movement Speed & Rapid Cooldowns",
+    buffs: { speedMul: 1.18, reloadMul: 0.82 },
+  },
+  kavacha: {
+    id: "kavacha",
+    name: "Vajra Kavacha Shrine",
+    title: "Sanctum of Protection",
+    color: "#ff3366",
+    auraColor: 0xff3366,
+    desc: "+25% Fortification HP & +1.5 HP/s Passive Regen",
+    buffs: { buildingHpMul: 1.25, regenPerSec: 1.5 },
+  },
+  soma: {
+    id: "soma",
+    name: "Soma Kund",
+    title: "Celestial Nectar Spring",
+    color: "#aa44ff",
+    auraColor: 0xaa44ff,
+    desc: "+25% Mystic Spell Damage & Extended Shields",
+    buffs: { spellMul: 1.25, shieldMul: 2.0 },
+  },
+};
+export const TIRTHA_IDS = Object.keys(TIRTHAS);
+
+export function playerHasTirtha(sim, owner, type) {
+  if (!sim || !sim.tirthas) return false;
+  return sim.tirthas.some(t => t.type === type && t.controller === owner);
+}
 
 export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
   const scenario = scenarioId && SCENARIOS[scenarioId] ? JSON.parse(JSON.stringify(SCENARIOS[scenarioId])) : null;
@@ -2328,6 +2371,7 @@ export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
     scenarioId: scenario ? scenario.id : null,
     scenario,
     hazards: [],
+    tirthas: [],
     grid,
     tick: 0,
     over: false,
@@ -2366,6 +2410,35 @@ export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
 
   for (const [tx, ty] of goldSeams(grid)) {
     sim.seams.set(idx(grid, tx, ty), GOLD_PER_TILE);
+  }
+
+  // Initialize Strategic Sacred Himalayan Tirthas (Shrines)
+  const midX = Math.floor(grid.w / 2);
+  const midY = Math.floor(grid.h / 2);
+  const tirthaConfigs = [
+    { type: "surya", tx: midX, ty: Math.floor(grid.h * 0.25) },
+    { type: "vayu", tx: midX, ty: Math.floor(grid.h * 0.75) },
+  ];
+  if (map.starts.length >= 4 || grid.w >= 140) {
+    tirthaConfigs.push({ type: "kavacha", tx: Math.floor(grid.w * 0.25), ty: midY });
+    tirthaConfigs.push({ type: "soma", tx: Math.floor(grid.w * 0.75), ty: midY });
+  }
+  for (const cfg of tirthaConfigs) {
+    const spot = freeSpotNear(sim, cfg.tx, cfg.ty);
+    const tx = spot ? spot.tx : cfg.tx;
+    const ty = spot ? spot.ty : cfg.ty;
+    sim.tirthas.push({
+      id: sim.nextId++,
+      type: cfg.type,
+      spec: TIRTHAS[cfg.type],
+      tx,
+      ty,
+      x: tileCentre(tx),
+      y: tileCentre(ty),
+      controller: null,
+      progress: 0,
+      capturingOwner: null,
+    });
   }
 
   const manors = map.starts.map(([sx, sy], owner) =>
@@ -2486,7 +2559,9 @@ function applyPathBonus(sim, owner) {
 /** The steadfast path's stone. Zero for everybody else. */
 export function buildingHpBonus(sim, owner) {
   const path = sim.players[owner]?.path;
-  return path ? (PATHS[path].buildingHp ?? 0) : 0;
+  const pathBonus = path ? (PATHS[path].buildingHp ?? 0) : 0;
+  const kavachaBonus = playerHasTirtha(sim, owner, "kavacha") ? 0.25 : 0;
+  return pathBonus + kavachaBonus;
 }
 
 /** The kinetic path's legs. Zero for everybody else. */
@@ -3648,10 +3723,70 @@ export function step(sim) {
   processAbilitiesAndHazards(sim);
   processHeroesAndAuras(sim);
   processCampaign(sim);
+  processTirthas(sim);
   updateGates(sim);
   moveUnits(sim);
   fight(sim);
   checkEnd(sim);
+}
+
+export function processTirthas(sim) {
+  if (!sim || !sim.tirthas) return;
+
+  for (const tirtha of sim.tirthas) {
+    const counts = new Map();
+    for (const u of sim.units) {
+      if (u.hp <= 0 || u.spec.flies || u.spec.hauler) continue;
+      const dx = u.x - tirtha.x;
+      const dy = u.y - tirtha.y;
+      if (dx * dx + dy * dy <= 80 * 80) {
+        counts.set(u.owner, (counts.get(u.owner) || 0) + 1);
+      }
+    }
+
+    if (counts.size === 0) continue;
+
+    let dominantOwner = null;
+    let maxCount = 0;
+    let secondMax = 0;
+    for (const [owner, cnt] of counts) {
+      if (cnt > maxCount) {
+        secondMax = maxCount;
+        maxCount = cnt;
+        dominantOwner = owner;
+      } else if (cnt > secondMax) {
+        secondMax = cnt;
+      }
+    }
+
+    const advantage = maxCount - secondMax;
+    if (advantage <= 0 || dominantOwner === null) continue;
+
+    if (tirtha.controller === dominantOwner) {
+      tirtha.progress = Math.min(100, tirtha.progress + advantage * 0.8);
+    } else {
+      if (tirtha.progress > 0 && tirtha.capturingOwner !== dominantOwner) {
+        tirtha.progress -= advantage * 1.2;
+        if (tirtha.progress <= 0) {
+          if (tirtha.controller !== null) {
+            say(sim, `⚡ ${sim.players[tirtha.controller].name} has lost control of the ${tirtha.spec.name}!`, true);
+          }
+          tirtha.controller = null;
+          tirtha.capturingOwner = dominantOwner;
+          tirtha.progress = 0;
+        }
+      } else {
+        tirtha.capturingOwner = dominantOwner;
+        tirtha.progress += advantage * 1.2;
+        if (tirtha.progress >= 100) {
+          tirtha.progress = 100;
+          tirtha.controller = dominantOwner;
+          say(sim, `🚩 ${sim.players[dominantOwner].name} has captured the ${tirtha.spec.name}! (${tirtha.spec.desc})`, true);
+          sound(sim, "build", dominantOwner);
+        }
+      }
+    }
+  }
 }
 
 function updateGates(sim) {
@@ -3710,6 +3845,11 @@ function processAbilitiesAndHazards(sim) {
         }
       }
       if (u.charge.ticks === 0) u.charge = null;
+    }
+
+    // Kavacha Tirtha blessing: passive health regeneration for troops
+    if (sim.tick % 20 === 0 && playerHasTirtha(sim, u.owner, "kavacha")) {
+      if (u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + 2);
     }
   }
 
@@ -4392,7 +4532,8 @@ function workPeasants(sim) {
       unit.mineTimer = 0;
 
       // A farm does not run out. What it does is pay for the ground it is on.
-      unit.carrying = Math.max(1, Math.floor(FOOD_PER_TRIP * fertility(sim, farm)));
+      const suryaBonus = playerHasTirtha(sim, unit.owner, "surya") ? 1.25 : 1.0;
+      unit.carrying = Math.max(1, Math.floor(FOOD_PER_TRIP * fertility(sim, farm) * suryaBonus));
       unit.carryKind = "food";
       const drop = nearestDropOff(sim, unit);
       if (drop) unit.job = { kind: "drop", id: drop.id, farm: farm.id };
@@ -4966,7 +5107,8 @@ function targetFor(sim, unit) {
  * pathfinder for a week.
  */
 function paceOf(sim, unit) {
-  return unit.spec.speed * (1 + speedBonus(sim, unit.owner));
+  const vayuBonus = playerHasTirtha(sim, unit.owner, "vayu") ? 0.18 : 0;
+  return unit.spec.speed * (1 + speedBonus(sim, unit.owner) + vayuBonus);
 }
 
 function moveUnits(sim) {
@@ -5349,14 +5491,17 @@ function fight(sim) {
       unit.ammo -= 1;
     }
 
-    if (unit.auraValour) unit.cooldown = Math.max(1, Math.round(unit.spec.reload * 0.75));
-    else unit.cooldown = unit.spec.reload;
+    let reload = unit.spec.reload;
+    if (unit.auraValour) reload = Math.max(1, Math.round(reload * 0.75));
+    if (playerHasTirtha(sim, unit.owner, "vayu")) reload = Math.max(1, Math.round(reload * 0.82));
+    unit.cooldown = reload;
 
     const isStructure = Boolean(target.spec.tiles);
     let dmg = isStructure && unit.spec.vsBuilding
       ? unit.spec.damage * unit.spec.vsBuilding
       : unit.spec.damage;
     if (unit.buff && unit.buff.dmgMul) dmg *= unit.buff.dmgMul;
+    if (playerHasTirtha(sim, unit.owner, "surya")) dmg *= 1.15;
 
     if (isStructure) target.hp -= dmg;
     else land(target, dmg);
