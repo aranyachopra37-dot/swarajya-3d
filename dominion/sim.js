@@ -2310,6 +2310,76 @@ export const SCENARIOS = {
       { tick: 1300, units: [{ type: "ratha", count: 2 }, { type: "guardian", count: 6 }], msg: "🛡️ Heavy fortress guards counter-attack your siege engines!" }
     ],
   },
+  chapter4: {
+    id: "chapter4",
+    chapter: 4,
+    title: "Chapter IV: Night Ambush in the Pine Passes",
+    mapId: "trishulPass",
+    hero: "senapati",
+    difficulty: "Master",
+    dialogue: [
+      { speaker: "Senapati Indra", role: "Supreme Commander", avatar: "👑", text: "The moon is shrouded in the pine valleys. The mountaineer raiders use the dark fog for cover. Mount our archers upon the stone battlements and take the Surya Tirtha to illuminate the ridge!" },
+      { speaker: "Scout Dhanurdhara", role: "Vanguard", avatar: "🏹", text: "Commander, they approach through the lower tree lines. Ready bows and hold fire until they enter the kill zone!" }
+    ],
+    briefing: "Hostile mountaineer raiders emerge under cover of night. Mount your archers on stone ramparts (+50% Range), capture the sacred Surya Tirtha, and defeat the Night Warlord.",
+    objectives: [
+      { id: "mount_archers", desc: "Mount 4 Archers or Mystics on Stone Walls", done: false, count: 0, total: 4 },
+      { id: "capture_surya", desc: "Capture and Consecrate the Surya Tirtha", done: false },
+      { id: "defeat_warlord", desc: "Eliminate the Night Warlord's Main War Host", done: false },
+    ],
+    waves: [
+      { tick: 450, units: [{ type: "spearman", count: 6 }, { type: "archer", count: 4 }], msg: "🌙 Night raiders stealthily advance through the outer pine glade!" },
+      { tick: 950, units: [{ type: "warRider", count: 4 }, { type: "huntress", count: 4 }], msg: "🏹 Mounted raiders charge the southern pass outposts!" },
+      { tick: 1600, units: [{ type: "ratha", count: 2 }, { type: "guardian", count: 8 }, { type: "archer", count: 6 }], warlord: true, msg: "⚔️ The Night Warlord leads the supreme assault on your stronghold!" }
+    ],
+  },
+  chapter5: {
+    id: "chapter5",
+    chapter: 5,
+    title: "Chapter V: Defense of the Five River Bridges",
+    mapId: "twoGates",
+    hero: "acharya",
+    difficulty: "Grandmaster",
+    dialogue: [
+      { speaker: "Kaula Acharya", role: "Tantric Sage", avatar: "🔮", text: "The glacial river divides our lands. The enemy king sends battering rams and armored chariots to force the river crossings. Build fortified gatehouses to bar their passage and unleash the Vajra Storm!" },
+      { speaker: "Yogini Vani", role: "Dakini Mystic", avatar: "⚡", text: "The prana flows through the waters. When our gatehouses hold, our lightning will incinerate their war machines!" }
+    ],
+    briefing: "Enemy war engines attempt to breach the river crossings. Construct fortified gatehouses (Dwara), deploy War Chariots (Ratha), and repel 4 massive crossing assaults.",
+    objectives: [
+      { id: "build_gatehouses", desc: "Construct 2 Fortified Gatehouses (Dwara)", done: false, count: 0, total: 2 },
+      { id: "train_rathas", desc: "Train 2 War Chariots (Ratha) at your Armory", done: false, count: 0, total: 2 },
+      { id: "repel_crossings", desc: "Repel 4 Glacial River Crossing Waves", done: false, count: 0, total: 4 },
+    ],
+    waves: [
+      { tick: 400, units: [{ type: "spearman", count: 6 }, { type: "ram", count: 1 }], msg: "🌊 First vanguard assaults the eastern river bridge!" },
+      { tick: 850, units: [{ type: "ratha", count: 2 }, { type: "archer", count: 6 }], msg: "🏹 Armored war chariots bombard the river gatehouses!" },
+      { tick: 1400, units: [{ type: "ram", count: 2 }, { type: "guardian", count: 6 }, { type: "yogini", count: 2 }], msg: "🛡️ Heavy assault brigade forces the central river crossing!" },
+      { tick: 2000, units: [{ type: "ratha", count: 3 }, { type: "catapult", count: 2 }, { type: "guardian", count: 10 }], msg: "⚔️ Supreme Royal Host commits all forces to breach your river perimeter!" }
+    ],
+  },
+  chapter6: {
+    id: "chapter6",
+    chapter: 6,
+    title: "Chapter VI: Siege of the Asura Citadel",
+    mapId: "theCrucible",
+    hero: "senapati",
+    difficulty: "Legendary",
+    dialogue: [
+      { speaker: "Senapati Indra", role: "Supreme Commander", avatar: "👑", text: "This is the final redoubt of the Asura tyrant. The caldera fortress is surrounded by ancient Himalayan Tirthas. Capture the four holy sanctums to shatter the citadel's mystical warding, roll forward our heavy catapults, and claim Swarajya for eternity!" },
+      { speaker: "Kaula Acharya", role: "Tantric Sage", avatar: "🔮", text: "The four holy energies — Surya, Vayu, Kavacha, and Soma — will unite to bestow supreme victory upon our armies!" }
+    ],
+    briefing: "Grand Finale: Capture all 4 Sacred Himalayan Tirthas to shatter the fortress wards, erect 3 Heavy Catapults (Shila Yantra), and raze the Asura Mountain Palace.",
+    objectives: [
+      { id: "capture_all_tirthas", desc: "Capture all 4 Sacred Himalayan Tirthas", done: false, count: 0, total: 4 },
+      { id: "erect_heavy_catapults", desc: "Construct 3 Heavy Catapults (Shila Yantra)", done: false, count: 0, total: 3 },
+      { id: "raze_asura_palace", desc: "Raze the Central Asura Mountain Palace", done: false },
+    ],
+    waves: [
+      { tick: 600, units: [{ type: "guardian", count: 6 }, { type: "huntress", count: 4 }], msg: "🏰 Citadel garrison sorties to reclaim the outer shrines!" },
+      { tick: 1200, units: [{ type: "ratha", count: 3 }, { type: "catapult", count: 1 }, { type: "yogini", count: 3 }], msg: "⚡ Tyrant's inner guard unleashes heavy counter-battery fire!" },
+      { tick: 1800, units: [{ type: "dragon", count: 1 }, { type: "guardian", count: 10 }, { type: "ram", count: 2 }], msg: "🐉 The Supreme Asura Warlord sorties with celestial war beasts!" }
+    ],
+  },
 };
 export const TIRTHAS = {
   surya: {
@@ -3984,11 +4054,70 @@ function processCampaign(sim) {
           say(sim, `✓ Objective Complete: Raider Chieftain Defeated!`, true);
           sound(sim, "devotion", 0);
         }
-      } else if (obj.id === "destroy_shrine" || obj.id === "destroy_citadel") {
-        const enemyHeart = sim.buildings.find((b) => b.owner === 1 && b.spec.isHeart);
+      } else if (obj.id === "destroy_shrine" || obj.id === "destroy_citadel" || obj.id === "raze_asura_palace") {
+        const enemyHeart = sim.buildings.find((b) => b.owner !== 0 && b.spec.isHeart);
         if (!enemyHeart) {
           obj.done = true;
           say(sim, `✓ Objective Complete: Enemy Stronghold Cleansed!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "mount_archers") {
+        const mounted = sim.units.filter(u => u.owner === 0 && u.mountedOn).length;
+        obj.count = mounted;
+        if (mounted >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: 4 Archers Mounted on Battlements!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "capture_surya") {
+        if (playerHasTirtha(sim, 0, "surya")) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Surya Tirtha Consecrated!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "defeat_warlord") {
+        if (sim.tick > 1600 && !sim.units.some(u => u.owner === 1 && u.isWarlord)) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: Night Warlord Vanquished!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "build_gatehouses") {
+        const gates = sim.buildings.filter(b => b.owner === 0 && (b.spec.gate || b.spec.id === "gate") && b.hp >= b.maxHp).length;
+        obj.count = gates;
+        if (gates >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: 2 Fortified Gatehouses Constructed!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "train_rathas") {
+        const rathas = sim.units.filter(u => u.owner === 0 && u.spec.id === "ratha").length;
+        obj.count = rathas;
+        if (rathas >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: 2 War Chariots (Ratha) Trained!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "repel_crossings") {
+        if (sim.tick >= 2000) {
+          obj.done = true;
+          obj.count = 4;
+          say(sim, `✓ Objective Complete: All 4 River Crossing Waves Repelled!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "capture_all_tirthas") {
+        const held = sim.tirthas ? sim.tirthas.filter(t => t.controller === 0).length : 0;
+        obj.count = held;
+        if (held >= (obj.total || 4)) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: All Sacred Tirthas Consecrated!`, true);
+          sound(sim, "devotion", 0);
+        }
+      } else if (obj.id === "erect_heavy_catapults") {
+        const cats = sim.units.filter(u => u.owner === 0 && u.spec.id === "catapult").length;
+        obj.count = cats;
+        if (cats >= obj.total) {
+          obj.done = true;
+          say(sim, `✓ Objective Complete: 3 Heavy Catapults Erected!`, true);
           sound(sim, "devotion", 0);
         }
       }
@@ -4730,7 +4859,7 @@ function nearestHeartTo(sim, owner, from) {
   return best;
 }
 
-function spawnUnit(sim, building, type) {
+export function spawnUnit(sim, building, type) {
   const spec = UNITS[type];
   // Muster on the side facing the enemy, rather than on whichever side a fixed
   // scan happens to reach first.
@@ -4814,6 +4943,7 @@ function spawnUnit(sim, building, type) {
   }
   sim.units.push(unit);
   sound(sim, "trained", building.owner);
+  return unit;
 }
 
 /**

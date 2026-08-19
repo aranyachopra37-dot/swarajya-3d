@@ -567,10 +567,52 @@
               <span style="font-size:10px; background:#e76f51; color:#fff; padding:2px 6px; border-radius:4px;">Master</span>
             </div>
             <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
-              The mountain citadel of the usurper sits heavily fortified behind stone walls. Assemble a siege train of Catapults and Rams to conquer the mountain palace.
+              The mountain fortress of the usurper sits heavily fortified behind stone walls. Assemble a siege train of Catapults and Rams to conquer the mountain palace.
             </p>
             <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter3')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #e76f51, #d4a373);">
               🏰 Play Chapter III
+            </button>
+          </div>
+
+          <!-- Chapter 4 -->
+          <div style="background:#141822; border:1px solid #4cc9f0; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter IV: Night Ambush in the Pine Passes</span>
+              <span style="font-size:10px; background:#4cc9f0; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold;">Master</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              Night falls across the snow ridges. Mount archers on stone ramparts (+50% Range), capture the sacred Surya Tirtha, and defeat the Night Warlord.
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter4')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #4cc9f0, #7209b7);">
+              🌙 Play Chapter IV
+            </button>
+          </div>
+
+          <!-- Chapter 5 -->
+          <div style="background:#141822; border:1px solid #7fd48f; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter V: Defense of the Five River Bridges</span>
+              <span style="font-size:10px; background:#7fd48f; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold;">Grandmaster</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              Construct fortified gatehouses (Dwara) across glacial river crossings, deploy War Chariots (Ratha), and repel 4 massive assault waves.
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter5')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #7fd48f, #2a9d8f);">
+              🌊 Play Chapter V
+            </button>
+          </div>
+
+          <!-- Chapter 6 -->
+          <div style="background:#141822; border:1px solid #ffd166; border-radius:8px; padding:12px 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">Chapter VI: Siege of the Asura Citadel</span>
+              <span style="font-size:10px; background:#ffd166; color:#000; padding:2px 6px; border-radius:4px; font-weight:bold;">Legendary</span>
+            </div>
+            <p style="font-size:11px; color:#9ca3af; margin-bottom:8px; line-height:1.4;">
+              Grand Finale: Consecrate all 4 Sacred Himalayan Tirthas, erect 3 Heavy Catapults, and raze the Asura Mountain Palace to claim eternal Swarajya!
+            </p>
+            <button class="menu-btn-primary" onclick="window.app3D && window.app3D.startCampaign('chapter6')" style="margin-top:0; padding:8px 0; font-size:12px; background:linear-gradient(135deg, #ffd166, #e76f51);">
+              🏆 Play Finale: Chapter VI
             </button>
           </div>
         </div>
@@ -674,6 +716,26 @@
     <h2>VICTORY</h2>
     <p>The enemy hall has fallen.</p>
     <button onclick="location.reload()">Play Again</button>
+  </div>
+
+  <!-- In-Engine Cinematic Cutscene Overlay -->
+  <div id="cinematic-overlay" style="display:none; position:absolute; top:0; left:0; width:100vw; height:100vh; pointer-events:none; z-index:900;">
+    <!-- Top Letterbox Bar -->
+    <div style="position:absolute; top:0; left:0; width:100%; height:12vh; background:#000000; box-shadow:0 10px 30px rgba(0,0,0,0.8);"></div>
+    <!-- Bottom Letterbox Bar -->
+    <div style="position:absolute; bottom:0; left:0; width:100%; height:16vh; background:#000000; box-shadow:0 -10px 30px rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center;">
+      <!-- Dialogue Box -->
+      <div id="cinematic-dialogue-box" style="pointer-events:auto; display:flex; align-items:center; gap:16px; background:rgba(20,24,36,0.92); border:1.5px solid #ffd166; border-radius:10px; padding:12px 24px; max-width:780px; width:90%; box-shadow:0 0 25px rgba(255,209,102,0.25);">
+        <div id="cinematic-avatar" style="font-size:36px; filter:drop-shadow(0 0 8px #ffd166);">👑</div>
+        <div style="flex:1; text-align:left;">
+          <div id="cinematic-speaker" style="font-family:'Cinzel',serif; font-size:14px; font-weight:bold; color:#ffd166;">Senapati Indra</div>
+          <div id="cinematic-text" style="font-size:13px; color:#e0e7ff; margin-top:3px; line-height:1.4;">The moon is shrouded in the pine valleys...</div>
+        </div>
+        <button id="cinematic-skip-btn" onclick="window.app3D && window.app3D.skipCutscene()" style="background:#2b3140; border:1px solid #ffd166; color:#ffd166; border-radius:6px; padding:6px 14px; font-family:'Cinzel',serif; font-size:11px; cursor:pointer; font-weight:bold;">
+          Skip [Space]
+        </button>
+      </div>
+    </div>
   </div>
 
   <script>

@@ -211,10 +211,67 @@ class Swarajya3DApp {
     this.matchStarted = true;
     this.isOnline = false;
     this.fogOfWarEnabled = false;
-    this._initSim("trishulPass", 94301, 0, chapterId);
+    this._initSim(null, 94301, 0, chapterId);
 
     const menuModal = document.getElementById("main-menu-modal");
     if (menuModal) menuModal.style.display = "none";
+
+    const sc = this.sim.scenario;
+    if (sc && sc.dialogue && sc.dialogue.length > 0) {
+      this._playIntroCutscene(sc);
+    }
+  }
+
+  _playIntroCutscene(sc) {
+    const overlay = document.getElementById("cinematic-overlay");
+    if (!overlay) return;
+    overlay.style.display = "block";
+    this.inCutscene = true;
+
+    let stepIdx = 0;
+    const dialogues = sc.dialogue || [];
+
+    const enemyManor = this.sim.buildings.find(b => b.owner !== this.localPlayer && b.spec.isHeart);
+    const localManor = this.sim.buildings.find(b => b.owner === this.localPlayer && b.spec.isHeart);
+
+    const showStep = () => {
+      if (!this.inCutscene || stepIdx >= dialogues.length) {
+        this.skipCutscene();
+        return;
+      }
+      const d = dialogues[stepIdx];
+      const avatarEl = document.getElementById("cinematic-avatar");
+      const speakerEl = document.getElementById("cinematic-speaker");
+      const textEl = document.getElementById("cinematic-text");
+      if (avatarEl) avatarEl.textContent = d.avatar || "👑";
+      if (speakerEl) speakerEl.textContent = `${d.speaker} (${d.role})`;
+      if (textEl) textEl.textContent = d.text;
+      this.loreAudio.playTempleBell(648 + stepIdx * 72);
+
+      // Smooth camera pan
+      if (stepIdx === 0 && enemyManor) {
+        this.rtsCamera.target.set(enemyManor.x, 0, enemyManor.y);
+      } else if (localManor) {
+        this.rtsCamera.target.set(localManor.x, 0, localManor.y);
+      }
+
+      stepIdx++;
+      this.cutsceneTimer = setTimeout(showStep, 4800);
+    };
+
+    showStep();
+  }
+
+  skipCutscene() {
+    this.inCutscene = false;
+    if (this.cutsceneTimer) clearTimeout(this.cutsceneTimer);
+    const overlay = document.getElementById("cinematic-overlay");
+    if (overlay) overlay.style.display = "none";
+
+    const localManor = this.sim.buildings.find(b => b.owner === this.localPlayer && b.spec.isHeart);
+    if (localManor) {
+      this.rtsCamera.focusOn(localManor.x, localManor.y);
+    }
   }
 
   _initMultiplayer() {
@@ -264,6 +321,14 @@ class Swarajya3DApp {
 
     window.addEventListener("keydown", (e) => {
       this._ensureAudio();
+      if (this.chat && this.chat.isOpen) return;
+
+      if (this.inCutscene && (e.code === "Space" || e.key === "Escape")) {
+        e.preventDefault();
+        this.skipCutscene();
+        return;
+      }
+
       const chatInput = document.getElementById("rts-chat-input");
       if (document.activeElement === chatInput) return;
 
