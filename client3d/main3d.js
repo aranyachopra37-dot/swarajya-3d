@@ -354,6 +354,7 @@ class Swarajya3DApp {
         } else {
           this._toggleGameMenu();
         }
+        return;
       } else if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
         // Control Group Binding: Ctrl + 1..9
         e.preventDefault();
@@ -655,6 +656,26 @@ class Swarajya3DApp {
     }
   }
 
+  _showNotice(msg, color = "#ffd166") {
+    let noticeEl = document.getElementById("hud-game-notice");
+    if (!noticeEl) {
+      noticeEl = document.createElement("div");
+      noticeEl.id = "hud-game-notice";
+      noticeEl.style.cssText = "position:absolute; top:110px; left:50%; transform:translateX(-50%); background:rgba(16,20,29,0.92); border:1px solid #f4a261; border-radius:6px; padding:6px 14px; font-size:12px; font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; z-index:150; pointer-events:none; transition:opacity 0.3s ease; backdrop-filter:blur(8px); box-shadow:0 4px 16px rgba(0,0,0,0.6);";
+      document.body.appendChild(noticeEl);
+    }
+    noticeEl.textContent = msg;
+    noticeEl.style.color = color;
+    noticeEl.style.borderColor = color;
+    noticeEl.style.opacity = "1";
+    noticeEl.style.display = "block";
+
+    clearTimeout(this._noticeTimer);
+    this._noticeTimer = setTimeout(() => {
+      if (noticeEl) noticeEl.style.opacity = "0";
+    }, 2200);
+  }
+
   _initMenuUI() {
     const startBtn = document.getElementById("menu-start-btn");
     const hostBtn = document.getElementById("menu-host-btn");
@@ -827,6 +848,9 @@ class Swarajya3DApp {
       const elev = this.terrain ? this.terrain.getHeight(pt.x, pt.z) : 0;
       this.vfx.spawnDebris(pt.x, elev, pt.z, 14, 0xd4a373);
       this.loreAudio.playTempleBell(648);
+    } else {
+      this._showNotice(`⚠️ ${check.reason || "Cannot build here"}`, "#e63946");
+      this.loreAudio.playWarDrum(45, 0.4);
     }
 
     // If Ctrl is held, stay in building placement mode to allow placing 10 walls / 5 farms in a row!
@@ -993,6 +1017,18 @@ class Swarajya3DApp {
   }
 
   _handleRightClick(e) {
+    if (this.placingBuildingType) {
+      this.placingBuildingType = null;
+      this.ghostMesh.visible = false;
+      this.cursors.setCursor("default");
+      return;
+    }
+    if (this.orderMode) {
+      this.orderMode = null;
+      this.cursors.setCursor("default");
+      this._updateContextualHUD();
+      return;
+    }
     if (this.selection.size === 0) return;
     const pt = this._getGroundIntersection(e);
     if (!pt) return;
