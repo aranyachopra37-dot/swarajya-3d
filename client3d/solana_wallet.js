@@ -2,6 +2,8 @@
 // Provides seamless, zero-dependency browser wallet connection, balance fetching,
 // and transaction signing for Solana Devnet & Mainnet.
 
+export const SWARAJYA_SOLANA_TREASURY = "4U1j9CsfSLRKCgM2jt4Fksxo1hX2UQ1gtpNF5UnSwXYv";
+
 export class SolanaWalletManager {
   constructor() {
     this.provider = null;
@@ -10,6 +12,7 @@ export class SolanaWalletManager {
     this.balance = 0;
     this.network = "mainnet-beta"; // or 'devnet'
     this.rpcUrl = "https://api.mainnet-beta.solana.com";
+    this.treasury = SWARAJYA_SOLANA_TREASURY;
   }
 
   /** Detect installed Solana wallet providers */
