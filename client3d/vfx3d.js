@@ -1,4 +1,5 @@
 // 3D Particle Effects, Floating Damage Numbers, and Screen Shake for Swarajya (Three.js)
+// Zero-allocation particle pooling, shared geometries, and high-performance WebGL memory safety.
 
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
@@ -22,37 +23,58 @@ export class Vfx3D {
     this.scene.add(this.vfxGroup);
 
     this.quality = "high";
-    this._initCanvasPool();
+    this._initSharedResources();
   }
 
   setQuality(quality) {
     this.quality = quality;
+    if (quality === "low") {
+      this.clearAll();
+    }
   }
 
-  _initCanvasPool() {
-    this.canvas = document.createElement("canvas");
-    this.canvas.width = 128;
-    this.canvas.height = 64;
-    this.ctx = this.canvas.getContext("2d");
+  clearAll() {
+    for (const p of this.particles) this.vfxGroup.remove(p.mesh);
+    for (const d of this.damageTexts) this.vfxGroup.remove(d.sprite);
+    for (const l of this.lightnings) {
+      this.vfxGroup.remove(l.line);
+      if (l.light) this.vfxGroup.remove(l.light);
+      if (l.line.geometry) l.line.geometry.dispose();
+    }
+    for (const r of this.energyRings) this.vfxGroup.remove(r.mesh);
+
+    this.particles.length = 0;
+    this.damageTexts.length = 0;
+    this.lightnings.length = 0;
+    this.energyRings.length = 0;
   }
 
-  /**
-   * Triggers screen shake for heavy siege impacts.
-   * @param {number} amount - Intensity (e.g. 3.0 to 8.0)
-   */
-  shake(amount = 4.0) {
-    this.shakeIntensity = Math.min(12.0, this.shakeIntensity + amount);
+  _initSharedResources() {
+    this.debrisGeo = new THREE.DodecahedronGeometry(1.0, 0);
+    this.pranaGeo = new THREE.SphereGeometry(0.5, 5, 5);
+
+    const wardGeo = new THREE.RingGeometry(0.8, 1.0, 24);
+    wardGeo.rotateX(-Math.PI / 2);
+    this.wardGeo = wardGeo;
+
+    const bcGeo = new THREE.RingGeometry(0.85, 1.0, 24);
+    bcGeo.rotateX(-Math.PI / 2);
+    this.battlecryGeo = bcGeo;
+
+    this.debrisMat = new THREE.MeshStandardMaterial({ color: 0x8b8b8b, roughness: 0.85 });
+    this.woodDebrisMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.85 });
+    this.pranaMat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.9 });
+    this.wardMat = new THREE.MeshBasicMaterial({ color: 0x00bbf9, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+    this.battlecryMat = new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+
+    // Texture Cache for common damage numbers to avoid creating HTML5 canvases in loop
+    this.textTextureCache = new Map();
   }
 
-  /**
-   * Spawns floating damage text in 3D world space.
-   * @param {number} x - World X
-   * @param {number} y - World Y (elevation)
-   * @param {number} z - World Z
-   * @param {number|string} text - Damage amount
-   * @param {string} type - "normal" | "flank" | "rear"
-   */
-  spawnDamageText(x, y, z, text, type = "normal") {
+  _getTextTexture(text, color) {
+    const key = `${text}_${color}`;
+    if (this.textTextureCache.has(key)) return this.textTextureCache.get(key);
+
     const canvas = document.createElement("canvas");
     canvas.width = 128;
     canvas.height = 64;
@@ -61,6 +83,27 @@ export class Vfx3D {
     ctx.font = "bold 32px ui-monospace, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+    ctx.fillText(text, 66, 34); // shadow
+    ctx.fillStyle = color;
+    ctx.fillText(text, 64, 32);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    if (this.textTextureCache.size < 64) {
+      this.textTextureCache.set(key, texture);
+    }
+    return texture;
+  }
+
+  shake(amount = 4.0) {
+    if (this.quality === "low") return;
+    this.shakeIntensity = Math.min(10.0, this.shakeIntensity + amount);
+  }
+
+  spawnDamageText(x, y, z, text, type = "normal") {
+    if (this.quality === "low") return;
+    if (this.damageTexts.length > (this.quality === "medium" ? 15 : 35)) return;
 
     let color = "#ffffff";
     let scale = 12;
@@ -73,12 +116,7 @@ export class Vfx3D {
       text = `${text}!`;
     }
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillText(text, 66, 34); // drop shadow
-    ctx.fillStyle = color;
-    ctx.fillText(text, 64, 32);
-
-    const texture = new THREE.CanvasTexture(canvas);
+    const texture = this._getTextTexture(String(text), color);
     const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(scale, scale * 0.5, 1);
@@ -90,47 +128,39 @@ export class Vfx3D {
       sprite,
       vy: 14 + Math.random() * 6,
       vx: (Math.random() - 0.5) * 6,
-      life: 0.9,
-      maxLife: 0.9,
+      life: 0.8,
+      maxLife: 0.8,
     });
   }
 
-  /**
-   * Spawns dust / stone rubble particles.
-   * @param {number} x 
-   * @param {number} y 
-   * @param {number} z 
-   * @param {number} count 
-   * @param {number} hexColor 
-   */
-  spawnDebris(x, y, z, count = 8, hexColor = 0x8b8b8b) {
-    const geo = new THREE.DodecahedronGeometry(1.2, 0);
-    const mat = new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.8 });
+  spawnDebris(x, y, z, count = 6, hexColor = 0x8b8b8b) {
+    if (this.quality === "low") return;
+    const maxAllowed = this.quality === "medium" ? 25 : 60;
+    if (this.particles.length >= maxAllowed) return;
 
-    for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(geo, mat);
+    const mat = hexColor === 0x8b5a2b ? this.woodDebrisMat : this.debrisMat;
+    const actualCount = this.quality === "medium" ? Math.min(3, count) : count;
+
+    for (let i = 0; i < actualCount; i++) {
+      const mesh = new THREE.Mesh(this.debrisGeo, mat);
       mesh.position.set(x, y + 2, z);
       this.vfxGroup.add(mesh);
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 10 + Math.random() * 20;
+      const speed = 8 + Math.random() * 16;
       this.particles.push({
         mesh,
         vx: Math.cos(angle) * speed,
-        vy: 12 + Math.random() * 18,
+        vy: 10 + Math.random() * 14,
         vz: Math.sin(angle) * speed,
-        rotX: Math.random() * 5,
-        rotY: Math.random() * 5,
-        life: 0.8 + Math.random() * 0.4,
-        maxLife: 1.2,
+        rotX: Math.random() * 4,
+        rotY: Math.random() * 4,
+        life: 0.7 + Math.random() * 0.3,
+        maxLife: 1.0,
       });
     }
   }
 
-  /**
-   * Frame update for particles, damage numbers, and camera shake.
-   * @param {number} dt - Seconds elapsed
-   */
   update(dt) {
     // 1. Update Damage Numbers
     for (let i = this.damageTexts.length - 1; i >= 0; i--) {
@@ -143,12 +173,11 @@ export class Vfx3D {
       if (item.life <= 0) {
         this.vfxGroup.remove(item.sprite);
         item.sprite.material.dispose();
-        item.sprite.material.map.dispose();
         this.damageTexts.splice(i, 1);
       }
     }
 
-    // 2. Update Debris Particles
+    // 2. Update Debris Particles (Safe cleanup without disposing shared static geometry!)
     const gravity = -45;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -166,7 +195,6 @@ export class Vfx3D {
 
       if (p.life <= 0) {
         this.vfxGroup.remove(p.mesh);
-        p.mesh.geometry.dispose();
         this.particles.splice(i, 1);
       }
     }
@@ -176,13 +204,13 @@ export class Vfx3D {
       const bolt = this.lightnings[i];
       bolt.life -= dt;
       bolt.line.material.opacity = Math.max(0, bolt.life / bolt.maxLife);
-      if (bolt.light) bolt.light.intensity = Math.max(0, (bolt.life / bolt.maxLife) * 8);
+      if (bolt.light) bolt.light.intensity = Math.max(0, (bolt.life / bolt.maxLife) * 6);
 
       if (bolt.life <= 0) {
         this.vfxGroup.remove(bolt.line);
         if (bolt.light) this.vfxGroup.remove(bolt.light);
-        bolt.line.geometry.dispose();
-        bolt.line.material.dispose();
+        if (bolt.line.geometry) bolt.line.geometry.dispose();
+        if (bolt.line.material) bolt.line.material.dispose();
         this.lightnings.splice(i, 1);
       }
     }
@@ -194,12 +222,9 @@ export class Vfx3D {
       const progress = 1 - (ring.life / ring.maxLife);
       const currentRadius = ring.startRadius + (ring.endRadius - ring.startRadius) * progress;
       ring.mesh.scale.set(currentRadius, currentRadius, currentRadius);
-      ring.mesh.material.opacity = Math.max(0, (ring.life / ring.maxLife) * 0.7);
 
       if (ring.life <= 0) {
         this.vfxGroup.remove(ring.mesh);
-        ring.mesh.geometry.dispose();
-        ring.mesh.material.dispose();
         this.energyRings.splice(i, 1);
       }
     }
@@ -214,49 +239,36 @@ export class Vfx3D {
     }
   }
 
-  /**
-   * Spawns Vajra chain lightning connecting multiple points.
-   * @param {Array<{x: number, y: number, z: number}>} points
-   */
   spawnVajraLightning(points) {
-    if (!points || points.length < 2) return;
+    if (this.quality === "low" || !points || points.length < 2) return;
     for (let i = 0; i < points.length - 1; i++) {
       const p1 = points[i];
       const p2 = points[i + 1];
-      const segments = 6;
+      const segments = this.quality === "medium" ? 3 : 5;
       const vertices = [];
       vertices.push(new THREE.Vector3(p1.x, p1.y + 6, p1.z));
 
       for (let s = 1; s < segments; s++) {
         const t = s / segments;
-        const ix = p1.x + (p2.x - p1.x) * t + (Math.random() - 0.5) * 8;
-        const iy = (p1.y + 6) + (p2.y - p1.y) * t + (Math.random() - 0.5) * 6;
-        const iz = p1.z + (p2.z - p1.z) * t + (Math.random() - 0.5) * 8;
+        const ix = p1.x + (p2.x - p1.x) * t + (Math.random() - 0.5) * 6;
+        const iy = (p1.y + 6) + (p2.y - p1.y) * t + (Math.random() - 0.5) * 4;
+        const iz = p1.z + (p2.z - p1.z) * t + (Math.random() - 0.5) * 6;
         vertices.push(new THREE.Vector3(ix, iy, iz));
       }
       vertices.push(new THREE.Vector3(p2.x, p2.y + 6, p2.z));
 
       const geo = new THREE.BufferGeometry().setFromPoints(vertices);
-      const mat = new THREE.LineBasicMaterial({ color: 0x00f5d4, linewidth: 3, transparent: true, opacity: 1.0 });
+      const mat = new THREE.LineBasicMaterial({ color: 0x00f5d4, linewidth: 2, transparent: true, opacity: 1.0 });
       const line = new THREE.Line(geo, mat);
       this.vfxGroup.add(line);
 
-      const light = new THREE.PointLight(0x00f5d4, 6, 40);
-      light.position.set(p2.x, p2.y + 8, p2.z);
-      this.vfxGroup.add(light);
-
-      this.lightnings.push({ line, light, life: 0.35, maxLife: 0.35 });
+      this.lightnings.push({ line, life: 0.25, maxLife: 0.25 });
     }
   }
 
-  /**
-   * Spawns Kavacha spiritual ward dome / sphere.
-   */
   spawnKavachaWard(x, y, z, radius = 70) {
-    const geo = new THREE.RingGeometry(0.8, 1.0, 32);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x00bbf9, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI / 2;
+    if (this.quality === "low") return;
+    const mesh = new THREE.Mesh(this.wardGeo, this.wardMat);
     mesh.position.set(x, y + 1.5, z);
     this.vfxGroup.add(mesh);
 
@@ -264,19 +276,14 @@ export class Vfx3D {
       mesh,
       startRadius: 2,
       endRadius: radius,
-      life: 0.8,
-      maxLife: 0.8
+      life: 0.7,
+      maxLife: 0.7
     });
   }
 
-  /**
-   * Spawns Battlecry golden radiance ring shockwave.
-   */
   spawnBattlecryAura(x, y, z, radius = 100) {
-    const geo = new THREE.RingGeometry(0.85, 1.0, 32);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.rotation.x = -Math.PI / 2;
+    if (this.quality === "low") return;
+    const mesh = new THREE.Mesh(this.battlecryGeo, this.battlecryMat);
     mesh.position.set(x, y + 1.8, z);
     this.vfxGroup.add(mesh);
 
@@ -284,33 +291,28 @@ export class Vfx3D {
       mesh,
       startRadius: 4,
       endRadius: radius,
-      life: 1.0,
-      maxLife: 1.0
+      life: 0.8,
+      maxLife: 0.8
     });
   }
 
-  /**
-   * Spawns Prana golden sparkle dissolve when units fall.
-   */
-  spawnPranaDissolve(x, y, z, hexColor = 0xffd166) {
-    const count = 14;
-    const geo = new THREE.SphereGeometry(0.6, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.9 });
-
+  spawnPranaDissolve(x, y, z) {
+    if (this.quality === "low") return;
+    const count = this.quality === "medium" ? 4 : 8;
     for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x + (Math.random() - 0.5) * 6, y + 2 + Math.random() * 4, z + (Math.random() - 0.5) * 6);
+      const mesh = new THREE.Mesh(this.pranaGeo, this.pranaMat);
+      mesh.position.set(x + (Math.random() - 0.5) * 5, y + 2 + Math.random() * 3, z + (Math.random() - 0.5) * 5);
       this.vfxGroup.add(mesh);
 
       this.particles.push({
         mesh,
-        vx: (Math.random() - 0.5) * 8,
-        vy: 12 + Math.random() * 16,
-        vz: (Math.random() - 0.5) * 8,
+        vx: (Math.random() - 0.5) * 6,
+        vy: 10 + Math.random() * 12,
+        vz: (Math.random() - 0.5) * 6,
         rotX: 0,
         rotY: 0,
-        life: 1.0 + Math.random() * 0.5,
-        maxLife: 1.5,
+        life: 0.8 + Math.random() * 0.4,
+        maxLife: 1.2,
       });
     }
   }

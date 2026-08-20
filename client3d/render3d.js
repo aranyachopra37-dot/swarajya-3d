@@ -85,6 +85,14 @@ export class Render3D {
       patrolLineMat: new THREE.LineBasicMaterial({ color: 0x4cc9f0, linewidth: 2, transparent: true, opacity: 0.85 }),
       guardLineMat: new THREE.LineBasicMaterial({ color: 0x7fd48f, linewidth: 2, transparent: true, opacity: 0.85 }),
     };
+
+    const arrowGeo = new THREE.CylinderGeometry(0.25, 0.25, 6);
+    arrowGeo.rotateX(Math.PI / 2);
+    this.geometries = {
+      projectileArrow: arrowGeo,
+      projectileStone: new THREE.SphereGeometry(2.4, 6, 6),
+    };
+
     this.quality = "high";
     this.alwaysShowHealthBars = false;
   }
@@ -1405,6 +1413,7 @@ export class Render3D {
     for (const [id, line] of this.chainLines.entries()) {
       if (!activeUnitIds.has(id)) {
         this.entityGroup.remove(line);
+        if (line.geometry) line.geometry.dispose();
         this.chainLines.delete(id);
       }
     }
@@ -1423,8 +1432,7 @@ export class Render3D {
 
       let mesh = this.projectileMeshes.get(key);
       if (!mesh) {
-        const geo = p.siege ? new THREE.SphereGeometry(2.4, 6, 6) : new THREE.CylinderGeometry(0.25, 0.25, 6);
-        geo.rotateX(Math.PI / 2);
+        const geo = p.siege ? this.geometries.projectileStone : this.geometries.projectileArrow;
         mesh = new THREE.Mesh(geo, p.siege ? this.materials.projectileStone : this.materials.projectileArrow);
         this.projectileMeshes.set(key, mesh);
         this.entityGroup.add(mesh);
@@ -1525,6 +1533,7 @@ export class Render3D {
     for (const [id, line] of this.rallyLines.entries()) {
       if (!activeBuildingIds.has(id)) {
         this.entityGroup.remove(line);
+        if (line.geometry) line.geometry.dispose();
         this.rallyLines.delete(id);
       }
     }
