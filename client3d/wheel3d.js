@@ -15,17 +15,17 @@ export class Wheel3D {
     this.wrapper.id = "alignment-wheel-wrapper";
     this.wrapper.style.cssText = `
       position: absolute;
-      bottom: 18px;
-      left: 18px;
-      width: 130px;
-      height: 130px;
-      z-index: 25;
+      bottom: 12px;
+      left: 12px;
+      width: 100px;
+      height: 100px;
+      z-index: 15;
       pointer-events: none;
-      filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.75));
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.75));
     `;
 
     this.wrapper.innerHTML = `
-      <svg width="130" height="130" viewBox="0 0 130 130">
+      <svg width="100" height="100" viewBox="0 0 130 130">
         <defs>
           <radialGradient id="wheelCenterGrad" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#ffd166" stop-opacity="0.9"/>
