@@ -465,6 +465,8 @@
       <div class="res-item"><span class="res-pop">👥</span> <span id="hud-pop">0 / 240</span></div>
     </div>
     <div class="hud-time-tag" id="hud-time">08:00 AM</div>
+    <button class="header-btn" id="hud-idle-worker-badge" onclick="window.app3D && window.app3D._selectNextIdlePeasant()">🌾 Idle: <strong>0</strong> [E]</button>
+    <button class="header-btn" id="open-wallet-btn" onclick="window.app3D && window.app3D._toggleWalletDrawer()" style="border-color:#9b5de5; color:#c77dff;">🟣 Dual-Chain Web3</button>
     <button class="header-btn" id="open-docs-btn" onclick="window.open('docs.html', '_blank')">📜 Docs</button>
     <button class="header-btn" id="open-dip-btn">🤝 Diplomacy [P]</button>
     <button class="header-btn" id="open-menu-btn">⚙️ Settings & Map</button>
@@ -727,6 +729,50 @@
     </div>
   </div>
 
+  <!-- Dual-Chain Web3 Ecosystem Modal (Abstract + Solana) -->
+  <div id="web3-wallet-modal" style="display:none; position:absolute; top:0; left:0; width:100vw; height:100vh; background:rgba(6,8,14,0.85); backdrop-filter:blur(6px); z-index:1050; justify-content:center; align-items:center;">
+    <div style="background:rgba(14,18,30,0.96); border:1.5px solid #9b5de5; border-radius:12px; padding:24px 28px; width:90%; max-width:520px; text-align:center; box-shadow:0 0 35px rgba(155,93,229,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 style="font-family:'Cinzel',serif; font-size:16px; color:#ffd166; margin:0;">DUAL-CHAIN REALM PORTAL</h2>
+        <button onclick="document.getElementById('web3-wallet-modal').style.display='none'" style="background:none; border:none; color:#9ca3af; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Chain Tabs -->
+      <div style="display:flex; gap:8px; margin-bottom:18px;">
+        <button id="tab-abs-btn" class="tab-btn active" onclick="switchChainTab('abs')" style="flex:1;">🟢 Abstract (ZK EVM)</button>
+        <button id="tab-sol-btn" class="tab-btn" onclick="switchChainTab('sol')" style="flex:1;">🟣 Solana (SVM)</button>
+      </div>
+
+      <!-- Abstract Tab Content -->
+      <div id="panel-chain-abs" style="display:block; text-align:left; font-size:12px;">
+        <div style="background:#141822; border:1px solid #7fd48f; border-radius:8px; padding:12px; margin-bottom:12px;">
+          <div style="color:#7fd48f; font-weight:bold; margin-bottom:4px;">✓ Abstract Mainnet Connected (Chain ID 2741)</div>
+          <div style="color:#9ca3af; font-size:11px; margin-bottom:6px;">Smart Contracts Deployed & Verified on Abscan:</div>
+          <div style="font-family:monospace; font-size:10px; color:#ffd166;">• Battleground: 0xAf7B...aE90</div>
+          <div style="font-family:monospace; font-size:10px; color:#ffd166;">• GameScore: 0x9e7e...0C26</div>
+        </div>
+        <button class="menu-btn-primary" onclick="window.app3D && window.app3D._submitScoreToChain()" style="background:#457b9d; margin-top:0;">⚡ Record Victory to Abstract Leaderboard</button>
+      </div>
+
+      <!-- Solana Tab Content -->
+      <div id="panel-chain-sol" style="display:none; text-align:left; font-size:12px;">
+        <div style="background:#141822; border:1px solid #9b5de5; border-radius:8px; padding:12px; margin-bottom:12px;">
+          <div id="sol-wallet-status" style="color:#c77dff; font-weight:bold; margin-bottom:4px;">Solana Wallet: Not Connected</div>
+          <div id="sol-wallet-pubkey" style="font-family:monospace; font-size:11px; color:#ffd166; word-break:break-all;">Click below to connect Phantom, Solflare, or Backpack</div>
+          <div id="sol-wallet-balance" style="font-size:11px; color:#8cb369; margin-top:4px;"></div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="sol-connect-btn" class="menu-btn-primary" onclick="window.app3D && window.app3D._connectSolanaWallet()" style="background:linear-gradient(135deg, #9b5de5, #f4a261); margin-top:0; flex:1;">
+            🟣 Connect Solana Wallet
+          </button>
+        </div>
+        <div style="margin-top:12px; font-size:10px; color:#9ca3af; line-height:1.4;">
+          * Ranked matches on Solana use high-speed Anchor escrow vaults with instant 97% pot payout to the match victor.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Victory / Defeat Overlay -->
   <div id="victory-banner">
     <h2>VICTORY</h2>
@@ -768,6 +814,13 @@
 
       const skirmishEl = document.getElementById('skirmish-settings');
       if (skirmishEl) skirmishEl.style.display = (tab === 'campaign' || tab === 'help') ? 'none' : 'block';
+    }
+
+    function switchChainTab(chain) {
+      document.getElementById('tab-abs-btn').classList.toggle('active', chain === 'abs');
+      document.getElementById('tab-sol-btn').classList.toggle('active', chain === 'sol');
+      document.getElementById('panel-chain-abs').style.display = chain === 'abs' ? 'block' : 'none';
+      document.getElementById('panel-chain-sol').style.display = chain === 'sol' ? 'block' : 'none';
     }
   </script>
 

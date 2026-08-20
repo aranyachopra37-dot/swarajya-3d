@@ -5446,6 +5446,31 @@ function moveUnits(sim) {
       }
     }
   }
+
+  // UNSTUCK WATCHDOG: Detects & frees units pinned or stuck in narrow geometry for >40 ticks
+  for (const u of sim.units) {
+    if (u.spec.fixed || u.spec.flies) continue;
+    if (u.order || u.job || u.chaseId !== null) {
+      const movedDistSq = (u.x - (u.lastTrackX ?? u.x)) ** 2 + (u.y - (u.lastTrackY ?? u.y)) ** 2;
+      if (movedDistSq < 1.0) {
+        u.stuckTicks = (u.stuckTicks || 0) + 1;
+        if (u.stuckTicks > 40) {
+          const freeSpot = freeSpotNear(sim, toTile(u.x), toTile(u.y));
+          if (freeSpot) {
+            u.x = tileCentre(freeSpot.tx);
+            u.y = tileCentre(freeSpot.ty);
+          }
+          u.stuckTicks = 0;
+        }
+      } else {
+        u.stuckTicks = 0;
+      }
+      u.lastTrackX = u.x;
+      u.lastTrackY = u.y;
+    } else {
+      u.stuckTicks = 0;
+    }
+  }
 }
 
 /** A cheap uniform grid for "who is near me", rebuilt each tick. */

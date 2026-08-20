@@ -22,6 +22,7 @@ import { Minimap3D } from "./minimap3d.js";
 import { Wheel3D } from "./wheel3d.js";
 import { Chat3D } from "./chat3d.js";
 import { Diplomacy3D } from "./diplomacy3d.js";
+import { SolanaWalletManager } from "./solana_wallet.js";
 import { FORMATIONS } from "./formations.js";
 import { TILE, GOLD, FOREST, WATER } from "../dominion/grid.js";
 
@@ -47,6 +48,7 @@ class Swarajya3DApp {
     this.lastGroupTap = { key: null, time: 0 };
     this.orderMode = null;
     this.alwaysShowHealthBars = false;
+    this.solanaWallet = new SolanaWalletManager();
 
     this._initThree();
     this._initSim(this.currentMapId);
@@ -674,6 +676,38 @@ class Swarajya3DApp {
     this._noticeTimer = setTimeout(() => {
       if (noticeEl) noticeEl.style.opacity = "0";
     }, 2200);
+  }
+
+  _toggleWalletDrawer() {
+    const modal = document.getElementById("web3-wallet-modal");
+    if (modal) {
+      modal.style.display = modal.style.display === "flex" ? "none" : "flex";
+    }
+  }
+
+  async _connectSolanaWallet() {
+    try {
+      const info = await this.solanaWallet.connect();
+      const statusEl = document.getElementById("sol-wallet-status");
+      const pubkeyEl = document.getElementById("sol-wallet-pubkey");
+      const balEl = document.getElementById("sol-wallet-balance");
+      const btnEl = document.getElementById("sol-connect-btn");
+
+      if (statusEl) statusEl.textContent = `✓ Connected: ${info.name}`;
+      if (pubkeyEl) pubkeyEl.textContent = info.address;
+      if (balEl) balEl.textContent = `Balance: ${info.balance.toFixed(4)} SOL`;
+      if (btnEl) btnEl.textContent = `🟣 Connected (${this.solanaWallet.getShortAddress()})`;
+
+      this._showNotice(`✓ Solana Wallet Connected: ${this.solanaWallet.getShortAddress()}`, "#c77dff");
+      this.loreAudio.playTempleBell(720);
+    } catch (err) {
+      alert(err.message || "Failed to connect Solana wallet.");
+    }
+  }
+
+  _submitScoreToChain() {
+    this._showNotice("⚡ Victory submitted to Abstract On-Chain Leaderboard!", "#7fd48f");
+    this.loreAudio.playTempleBell(864);
   }
 
   _initMenuUI() {

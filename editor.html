@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarajya 3D — Realm Map & Scenario Sculptor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #080a0f;
+      color: #e5e7eb;
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      height: 54px;
+      background: rgba(14, 18, 28, 0.95);
+      border-bottom: 1.5px solid rgba(244, 162, 97, 0.25);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      color: #ffd166;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tools-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 54px);
+    }
+    #sidebar {
+      width: 280px;
+      background: #0e121c;
+      border-right: 1px solid #1f2430;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .panel-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      color: #f4a261;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .tool-btn {
+      background: #181d28;
+      border: 1px solid #2b3140;
+      color: #e5e7eb;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .tool-btn:hover { background: #262e40; border-color: #ffd166; }
+    .tool-btn.active { background: #2a344a; border-color: #ffd166; color: #ffd166; box-shadow: 0 0 10px rgba(255, 209, 102, 0.2); }
+    #canvas-wrap {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #06080c;
+      position: relative;
+    }
+    #map-grid {
+      background: #10141f;
+      border: 2px solid #374151;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+      cursor: crosshair;
+    }
+    .btn-action {
+      background: linear-gradient(135deg, #f4a261, #e76f51);
+      border: none;
+      color: #111827;
+      font-weight: bold;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: inherit;
+    }
+    .btn-action:hover { filter: brightness(1.1); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🏔️ SWARAJYA 3D — HIMALAYAN MAP SCULPTOR</h1>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-action" onclick="exportMapJSON()">💾 Export Map JSON</button>
+      <button class="btn-action" style="background:#457b9d; color:#fff;" onclick="window.location.href='swarajya3d.html'">⚔️ Launch Game</button>
+    </div>
+  </header>
+
+  <div class="tools-container">
+    <div id="sidebar">
+      <div>
+        <div class="panel-title">Terrain & Biomes</div>
+        <div class="tool-grid">
+          <button class="tool-btn active" onclick="setBrush('plain')">🌱 Alpine Grass</button>
+          <button class="tool-btn" onclick="setBrush('forest')">🌲 Pine Forest</button>
+          <button class="tool-btn" onclick="setBrush('gold')">🟡 Gold Ore Seam</button>
+          <button class="tool-btn" onclick="setBrush('water')">🌊 Glacial River</button>
+          <button class="tool-btn" onclick="setBrush('mountain')">🏔️ Snow Ridge</button>
+          <button class="tool-btn" onclick="setBrush('tirtha')">✨ Sacred Tirtha</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-title">Brush Radius</div>
+        <div style="display:flex; gap:8px;">
+          <button class="tool-btn active" id="b-1" onclick="setBrushSize(1)" style="flex:1;">1x1</button>
+          <button class="tool-btn" id="b-2" onclick="setBrushSize(2)" style="flex:1;">3x3</button>
+          <button class="tool-btn" id="b-3" onclick="setBrushSize(3)" style="flex:1;">5x5</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-title">Map Dimensions</div>
+        <div style="display:flex; gap:8px;">
+          <button class="tool-btn active" onclick="resizeMap(48, 48)" style="flex:1;">48x48</button>
+          <button class="tool-btn" onclick="resizeMap(64, 64)" style="flex:1;">64x64</button>
+        </div>
+      </div>
+
+      <div style="margin-top:auto; font-size:11px; color:#6b7280; line-height:1.4;">
+        * Painted maps export directly to deterministic seed formats fully compatible with Swarajya 3D multiplayer lockstep.
+      </div>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="map-grid" width="600" height="600"></canvas>
+    </div>
+  </div>
+
+  <script>
+    let mapW = 48, mapH = 48;
+    let grid = new Uint8Array(mapW * mapH); // 0: plain, 1: forest, 2: gold, 3: water, 4: mountain, 5: tirtha
+    let currentBrush = 'plain';
+    let brushSize = 1;
+    let isPainting = false;
+
+    const canvas = document.getElementById('map-grid');
+    const ctx = canvas.getContext('2d');
+
+    const COLORS = {
+      0: '#2d6a4f', // plain
+      1: '#1b4332', // forest
+      2: '#ffd166', // gold
+      3: '#1d3557', // water
+      4: '#e5e7eb', // mountain
+      5: '#9b5de5', // tirtha
+    };
+
+    function render() {
+      const cellW = canvas.width / mapW;
+      const cellH = canvas.height / mapH;
+      for (let y = 0; y < mapH; y++) {
+        for (let x = 0; x < mapW; x++) {
+          const type = grid[y * mapW + x];
+          ctx.fillStyle = COLORS[type] || '#2d6a4f';
+          ctx.fillRect(x * cellW, y * cellH, cellW, cellH);
+          ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+          ctx.strokeRect(x * cellW, y * cellH, cellW, cellH);
+        }
+      }
+    }
+
+    function setBrush(type) {
+      currentBrush = type;
+      document.querySelectorAll('.tool-grid .tool-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function setBrushSize(sz) {
+      brushSize = sz;
+      document.getElementById('b-1').classList.toggle('active', sz === 1);
+      document.getElementById('b-2').classList.toggle('active', sz === 2);
+      document.getElementById('b-3').classList.toggle('active', sz === 3);
+    }
+
+    function paint(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const tx = Math.floor((mx / canvas.width) * mapW);
+      const ty = Math.floor((my / canvas.height) * mapH);
+
+      const typeMap = { plain: 0, forest: 1, gold: 2, water: 3, mountain: 4, tirtha: 5 };
+      const val = typeMap[currentBrush] ?? 0;
+
+      const r = brushSize - 1;
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const px = tx + dx;
+          const py = ty + dy;
+          if (px >= 0 && px < mapW && py >= 0 && py < mapH) {
+            grid[py * mapW + px] = val;
+          }
+        }
+      }
+      render();
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isPainting = true; paint(e); });
+    window.addEventListener('mouseup', () => { isPainting = false; });
+    canvas.addEventListener('mousemove', (e) => { if (isPainting) paint(e); });
+
+    function resizeMap(w, h) {
+      mapW = w; mapH = h;
+      grid = new Uint8Array(mapW * mapH);
+      render();
+    }
+
+    function exportMapJSON() {
+      const data = {
+        name: "Custom Himalayan Battlefield",
+        width: mapW,
+        height: mapH,
+        cells: Array.from(grid),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "custom_map.json";
+      a.click();
+    }
+
+    render();
+  </script>
+</body>
+</html>
