@@ -459,6 +459,7 @@ class Swarajya3DApp {
     });
 
     dom.addEventListener("mousedown", (e) => {
+      e.preventDefault();
       this._ensureAudio();
       if (e.button === 0) {
         if (this.placingBuildingType) {
@@ -496,7 +497,11 @@ class Swarajya3DApp {
       }
     });
 
-    dom.addEventListener("contextmenu", (e) => e.preventDefault());
+    dom.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    window.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
   _updateCursorState(pt) {
@@ -1460,6 +1465,7 @@ class Swarajya3DApp {
 
     const hasWorker = selUnits.some(u => u.spec.worker);
     const manor = selBuildings.find(b => b.spec.isHeart);
+    const warehouse = selBuildings.find(b => b.spec.id === "warehouse");
     const barracks = selBuildings.find(b => b.spec.id === "barracks");
     const armory = selBuildings.find(b => b.spec.id === "armory");
     const factory = selBuildings.find(b => b.spec.id === "factory");
@@ -1494,7 +1500,7 @@ class Swarajya3DApp {
     } else if (hasWorker) {
       actions = [
         { id: "build_farm", label: "Kshetra (Farm)", cost: "40g 30w", desc: "Grows grain" },
-        { id: "build_warehouse", label: "Kosha (Warehouse)", cost: "60g 50w", desc: "Storehouse" },
+        { id: "build_warehouse", label: "Grama (Village)", cost: "60g 50w", desc: "Rural hub that trains farmers directly and provides 1 free cart" },
         { id: "build_wall", label: "Prakara (Wall)", cost: "8g 18w", desc: "Stone wall segment with mountable ramparts" },
         { id: "build_gate", label: "Dwara (Gate)", cost: "45g 60w", desc: "Fortified gatehouse with auto-opening doors" },
         { id: "build_barracks", label: "Akhara (Barracks)", cost: "120g 90w", desc: "Martial training" },
@@ -1509,6 +1515,11 @@ class Swarajya3DApp {
         { id: "train_peasant", label: "Praja (Peasant)", cost: "50g", desc: "Worker" },
         { id: "train_senapati", label: "👑 Senapati Indra", cost: "200g 120f", desc: "Himalayan Commander & Hero" },
         { id: "train_acharya", label: "🔮 Kaula Acharya", cost: "220g 140f", desc: "Tantric Sage & Hero" },
+      ];
+    } else if (warehouse) {
+      actions = [
+        { id: "train_peasant", label: "Krishaka (Farmer)", cost: "50g", desc: "Village farmer who auto-constructs and harvests nearby farms" },
+        { id: "train_cart", label: "Shakata (Cart)", cost: "50g 30w", desc: "Resource transport cart" },
       ];
     } else if (barracks) {
       actions = [
