@@ -104,9 +104,10 @@ export class FogOfWar3D {
     // 2. Reveal vision around friendly buildings
     for (const b of sim.buildings) {
       if (b.owner === localPlayer) {
-        const radius = b.spec.isHeart ? 16 : (b.spec.sight || 10);
-        const cx = b.tx + Math.floor(b.spec.tiles / 2);
-        const cy = b.ty + Math.floor(b.spec.tiles / 2);
+        const tiles = b.spec ? b.spec.tiles : 2;
+        const radius = b.spec ? (b.spec.isHeart ? 16 : (b.spec.sight || 10)) : 10;
+        const cx = b.tx + Math.floor(tiles / 2);
+        const cy = b.ty + Math.floor(tiles / 2);
         this._revealCircle(cx, cy, radius);
       }
     }
@@ -114,7 +115,7 @@ export class FogOfWar3D {
     // 3. Reveal vision around friendly units
     for (const u of sim.units) {
       if (u.owner === localPlayer) {
-        const radius = u.spec.sight || (u.spec.worker ? 7 : (u.spec.archer ? 13 : 9));
+        const radius = u.spec ? (u.spec.sight || (u.spec.worker ? 7 : (u.spec.archer ? 13 : 9))) : 8;
         const tx = toTile(u.x);
         const ty = toTile(u.y);
         this._revealCircle(tx, ty, radius);

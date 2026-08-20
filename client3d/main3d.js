@@ -1059,161 +1059,165 @@ class Swarajya3DApp {
     this.accumulator = 0;
 
     const loop = (now) => {
-      const dt = Math.min(0.1, (now - this.lastTime) / 1000.0);
-      this.lastTime = now;
-      this.accumulator += dt;
-      let subSteps = 0;
-      while (this.accumulator >= TICK_DURATION && subSteps < 4) {
-        subSteps++;
-        for (const u of this.sim.units) {
-          u.prevX = u.x;
-          u.prevY = u.y;
-        }
-
-        if (this.isOnline && this.mp && this.mp.lockstep) {
-          this.mp.lockstep.publish();
-          this.mp.lockstep.tryAdvance(now);
-        } else {
-          if (!this.sim.over) {
-            const numAi = this.sim.players.length - 1;
-            for (let seat = 1; seat < this.sim.players.length; seat++) {
-              if (numAi <= 1 || (this.sim.tick % numAi) === (seat - 1)) {
-                think(this.sim, seat, this.currentAiTier);
-              }
-            }
+      try {
+        const dt = Math.min(0.1, (now - this.lastTime) / 1000.0);
+        this.lastTime = now;
+        this.accumulator = Math.min(0.2, this.accumulator + dt);
+        let subSteps = 0;
+        while (this.accumulator >= TICK_DURATION && subSteps < 4) {
+          subSteps++;
+          for (const u of this.sim.units) {
+            u.prevX = u.x;
+            u.prevY = u.y;
           }
-          step(this.sim);
-        }
 
-        if (this.audioStarted && this.sim.sounds && this.sim.sounds.length > 0) {
-          for (const s of this.sim.sounds) {
-            if (s.cue === "build") this.loreAudio.playTempleBell(648);
-            else if (s.cue === "trained") this.loreAudio.playWarDrum(80, 0.35);
-            else if (s.cue === "hit") this.loreAudio.playWarDrum(55, 0.4);
-            else if (s.cue === "collapse") this.loreAudio.playWarDrum(40, 0.8);
-            else if (s.cue === "order") this.loreAudio.playWarDrum(75, 0.3);
-            else if (s.cue === "devotion") this.loreAudio.playTempleBell(720);
-          }
-          this.sim.sounds.length = 0;
-        }
-
-        if (this.sim.events && this.sim.events.length > 0) {
-          for (const ev of this.sim.events) {
-            if (ev.type === "chat") {
-              const author = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
-              const col = this.sim.players[ev.from]?.colour || "#f4a261";
-              if (this.chat) {
-                const chan = ev.target === -2 ? "allies" : (ev.target >= 0 ? "whisper" : "all");
-                this.chat.addMessage({
-                  author,
-                  text: ev.text,
-                  type: ev.target >= 0 ? "whisper" : (ev.target === -2 ? "allies" : "normal"),
-                  color: col,
-                  channel: chan,
-                  target: ev.target,
-                });
-                if (!this.isOnline && ev.from === this.localPlayer) {
-                  this.chat.handleAiResponse(this.sim, ev.text, ev.target);
+          if (this.isOnline && this.mp && this.mp.lockstep) {
+            this.mp.lockstep.publish();
+            this.mp.lockstep.tryAdvance(now);
+          } else {
+            if (!this.sim.over) {
+              const numAi = this.sim.players.length - 1;
+              for (let seat = 1; seat < this.sim.players.length; seat++) {
+                if (numAi <= 1 || (this.sim.tick % numAi) === (seat - 1)) {
+                  think(this.sim, seat, this.currentAiTier);
                 }
               }
-            } else if (ev.type === "diplomacy_change") {
-              const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
-              const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
-              if (this.chat) {
-                this.chat.addMessage({
-                  author: "Diplomacy",
-                  text: `${pFrom} is now ${ev.stance.toUpperCase()} with ${pTo}`,
-                  type: "diplomacy",
-                });
-              }
-              this.loreAudio.playTempleBell(648);
-            } else if (ev.type === "tribute") {
-              const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
-              const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
-              if (this.chat) {
-                this.chat.addMessage({
-                  author: "Tribute",
-                  text: `${pFrom} gifted ${ev.amount} ${ev.resource} to ${pTo}!`,
-                  type: "system",
-                });
-              }
-              this.loreAudio.playTempleBell(720);
-            } else if (ev.type === "vfx_vajra") {
-              if (this.vfx) {
-                const pts = [{ x: ev.fromX, y: 0, z: ev.fromY }, ...ev.targets.map(t => ({ x: t.x, y: 0, z: t.y }))];
-                this.vfx.spawnVajraLightning(pts);
-                for (const t of ev.targets) {
-                  this.vfx.spawnDamageText(t.x, 0, t.y, 65, "flank");
+            }
+            step(this.sim);
+          }
+
+          if (this.audioStarted && this.sim.sounds && this.sim.sounds.length > 0) {
+            for (const s of this.sim.sounds) {
+              if (s.cue === "build") this.loreAudio.playTempleBell(648);
+              else if (s.cue === "trained") this.loreAudio.playWarDrum(80, 0.35);
+              else if (s.cue === "hit") this.loreAudio.playWarDrum(55, 0.4);
+              else if (s.cue === "collapse") this.loreAudio.playWarDrum(40, 0.8);
+              else if (s.cue === "order") this.loreAudio.playWarDrum(75, 0.3);
+              else if (s.cue === "devotion") this.loreAudio.playTempleBell(720);
+            }
+            this.sim.sounds.length = 0;
+          }
+
+          if (this.sim.events && this.sim.events.length > 0) {
+            for (const ev of this.sim.events) {
+              if (ev.type === "chat") {
+                const author = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+                const col = this.sim.players[ev.from]?.colour || "#f4a261";
+                if (this.chat) {
+                  const chan = ev.target === -2 ? "allies" : (ev.target >= 0 ? "whisper" : "all");
+                  this.chat.addMessage({
+                    author,
+                    text: ev.text,
+                    type: ev.target >= 0 ? "whisper" : (ev.target === -2 ? "allies" : "normal"),
+                    color: col,
+                    channel: chan,
+                    target: ev.target,
+                  });
+                  if (!this.isOnline && ev.from === this.localPlayer) {
+                    this.chat.handleAiResponse(this.sim, ev.text, ev.target);
+                  }
+                }
+              } else if (ev.type === "diplomacy_change") {
+                const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+                const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
+                if (this.chat) {
+                  this.chat.addMessage({
+                    author: "Diplomacy",
+                    text: `${pFrom} is now ${ev.stance.toUpperCase()} with ${pTo}`,
+                    type: "diplomacy",
+                  });
+                }
+                this.loreAudio.playTempleBell(648);
+              } else if (ev.type === "tribute") {
+                const pFrom = this.sim.players[ev.from]?.name || `Player ${ev.from + 1}`;
+                const pTo = this.sim.players[ev.to]?.name || `Player ${ev.to + 1}`;
+                if (this.chat) {
+                  this.chat.addMessage({
+                    author: "Tribute",
+                    text: `${pFrom} gifted ${ev.amount} ${ev.resource} to ${pTo}!`,
+                    type: "system",
+                  });
+                }
+                this.loreAudio.playTempleBell(720);
+              } else if (ev.type === "vfx_vajra") {
+                if (this.vfx) {
+                  const pts = [{ x: ev.fromX, y: 0, z: ev.fromY }, ...ev.targets.map(t => ({ x: t.x, y: 0, z: t.y }))];
+                  this.vfx.spawnVajraLightning(pts);
+                  for (const t of ev.targets) {
+                    this.vfx.spawnDamageText(t.x, 0, t.y, 65, "flank");
+                  }
+                }
+              } else if (ev.type === "vfx_kavacha") {
+                if (this.vfx) {
+                  this.vfx.spawnKavachaWard(ev.x, 0, ev.y, ev.radius);
+                }
+              } else if (ev.type === "vfx_battlecry") {
+                if (this.vfx) {
+                  const u = this.sim.units.find(x => x.id === ev.unitId);
+                  if (u) this.vfx.spawnBattlecryAura(u.x, 0, u.y, ev.radius);
+                }
+              } else if (ev.type === "vfx_prana_death") {
+                if (this.vfx) {
+                  this.vfx.spawnPranaDissolve(ev.x, 0, ev.y);
                 }
               }
-            } else if (ev.type === "vfx_kavacha") {
-              if (this.vfx) {
-                this.vfx.spawnKavachaWard(ev.x, 0, ev.y, ev.radius);
-              }
-            } else if (ev.type === "vfx_battlecry") {
-              if (this.vfx) {
-                const u = this.sim.units.find(x => x.id === ev.unitId);
-                if (u) this.vfx.spawnBattlecryAura(u.x, 0, u.y, ev.radius);
-              }
-            } else if (ev.type === "vfx_prana_death") {
-              if (this.vfx) {
-                this.vfx.spawnPranaDissolve(ev.x, 0, ev.y);
-              }
+            }
+            this.sim.events.length = 0;
+          }
+
+          // Live Campaign Objectives Tracking
+          if (this.sim.scenario && this.sim.scenario.objectives) {
+            const listEl = document.getElementById("campaign-objectives-list");
+            if (listEl) {
+              listEl.innerHTML = this.sim.scenario.objectives.map(o => `
+                <div style="display:flex; align-items:center; gap:6px; color:${o.done ? '#7fd48f' : '#d1d5db'};">
+                  <span>${o.done ? '✓' : '◻'}</span>
+                  <span style="${o.done ? 'text-decoration:line-through; opacity:0.7;' : ''}">${o.desc} ${o.total ? `(${o.count || 0}/${o.total})` : ''}</span>
+                </div>
+              `).join("");
             }
           }
-          this.sim.events.length = 0;
-        }
 
-        // Live Campaign Objectives Tracking
-        if (this.sim.scenario && this.sim.scenario.objectives) {
-          const listEl = document.getElementById("campaign-objectives-list");
-          if (listEl) {
-            listEl.innerHTML = this.sim.scenario.objectives.map(o => `
-              <div style="display:flex; align-items:center; gap:6px; color:${o.done ? '#7fd48f' : '#d1d5db'};">
-                <span>${o.done ? '✓' : '◻'}</span>
-                <span style="${o.done ? 'text-decoration:line-through; opacity:0.7;' : ''}">${o.desc} ${o.total ? `(${o.count || 0}/${o.total})` : ''}</span>
-              </div>
-            `).join("");
+          const playerPath = this.sim.players[this.localPlayer]?.path;
+          if (playerPath && this.currentPath !== playerPath) {
+            this.currentPath = playerPath;
+            this.loreAudio.playTempleBell(648);
           }
+
+          this.accumulator -= TICK_DURATION;
+        }
+        if (subSteps >= 4) this.accumulator = 0;
+
+        const alpha = this.accumulator / TICK_DURATION;
+
+        this.rtsCamera.update(dt);
+        if (this.sky) {
+          this.sky.update(dt, this.rtsCamera.target);
+        }
+        this.vfx.update(dt);
+        this.renderer3D.render(this.sim, alpha, this.selection, dt);
+
+        if (this.fog) {
+          this.fog.update(this.sim, this.localPlayer, this.renderer3D.unitMeshes, this.renderer3D.buildingMeshes);
         }
 
-        const playerPath = this.sim.players[this.localPlayer]?.path;
-        if (playerPath && this.currentPath !== playerPath) {
-          this.currentPath = playerPath;
-          this.loreAudio.playTempleBell(648);
+        if (this.minimap) {
+          this.minimap.update(this.localPlayer);
+        }
+        if (this.wheel) {
+          this.wheel.update(this.sim.players[this.localPlayer]);
         }
 
-        this.accumulator -= TICK_DURATION;
+        this.renderer.render(this.scene, this.camera);
+
+        this._updateSelectionInfoOnly();
+        this._updateTopHUD();
+        this._checkEndState();
+      } catch (err) {
+        console.error("[Swarajya Game Loop Recovery]", err);
+      } finally {
+        requestAnimationFrame(loop);
       }
-      if (subSteps >= 4) this.accumulator = 0;
-
-      const alpha = this.accumulator / TICK_DURATION;
-
-      this.rtsCamera.update(dt);
-      if (this.sky) {
-        this.sky.update(dt, this.rtsCamera.target);
-      }
-      this.vfx.update(dt);
-      this.renderer3D.render(this.sim, alpha, this.selection, dt);
-
-      if (this.fog) {
-        this.fog.update(this.sim, this.localPlayer, this.renderer3D.unitMeshes, this.renderer3D.buildingMeshes);
-      }
-
-      if (this.minimap) {
-        this.minimap.update(this.localPlayer);
-      }
-      if (this.wheel) {
-        this.wheel.update(this.sim.players[this.localPlayer]);
-      }
-
-      this.renderer.render(this.scene, this.camera);
-
-      this._updateSelectionInfoOnly();
-      this._updateTopHUD();
-      this._checkEndState();
-
-      requestAnimationFrame(loop);
     };
 
     requestAnimationFrame(loop);
