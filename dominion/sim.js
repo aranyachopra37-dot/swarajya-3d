@@ -346,6 +346,7 @@ export const BUILDINGS = {
     id: "wall", name: "Prakara",
     plain: "Wall. A single block of stone. Build them in a row to close a gap.", cost: { gold: 8, timber: 18 }, tiles: 1, hp: 620,
     buildWork: 130,
+    wall: true,
     // Cheap, quick and tough for the money. A wall is not meant to kill
     // anything — it is meant to make an army spend a minute in one place while
     // your towers and your riders decide what to do about them.
@@ -2006,25 +2007,38 @@ export const RESOURCES = ["gold", "timber", "food"];
  * it `{ gold: 180 }` everywhere would be noise. `cost: { gold: 120, timber: 60 }`
  * means both. Either form is legal; this is the only place that needs to know.
  */
-export function priceOf(spec) {
+export function priceOf(spec, goldOnly = false) {
   const c = spec.cost;
   if (typeof c === "number") return { gold: c, timber: 0, food: 0 };
+  if (goldOnly) {
+    const g = (c.gold ?? 0) + Math.round((c.timber ?? 0) * 0.75) + Math.round((c.food ?? 0) * 0.5);
+    return { gold: g, timber: 0, food: 0 };
+  }
   return { gold: c.gold ?? 0, timber: c.timber ?? 0, food: c.food ?? 0 };
 }
 
-export function canAfford(player, spec) {
-  const price = priceOf(spec);
+export function canAfford(player, spec, goldOnly = false) {
+  const price = priceOf(spec, goldOnly);
+  if (goldOnly) return player.gold >= price.gold;
   return RESOURCES.every((r) => player[r] >= price[r]);
 }
 
-export function pay(player, spec) {
-  const price = priceOf(spec);
+export function pay(player, spec, goldOnly = false) {
+  const price = priceOf(spec, goldOnly);
+  if (goldOnly) {
+    player.gold -= price.gold;
+    return;
+  }
   for (const r of RESOURCES) player[r] -= price[r];
 }
 
 /** Give it back — a cancelled order should cost nothing. */
-export function refund(player, spec) {
-  const price = priceOf(spec);
+export function refund(player, spec, goldOnly = false) {
+  const price = priceOf(spec, goldOnly);
+  if (goldOnly) {
+    player.gold += price.gold;
+    return;
+  }
   for (const r of RESOURCES) player[r] += price[r];
 }
 
@@ -2035,8 +2049,11 @@ export function refund(player, spec) {
  * exactly like a broken button, and with three resources "not enough gold" is
  * now a lie as often as it is the truth.
  */
-export function shortfall(player, spec) {
-  const price = priceOf(spec);
+export function shortfall(player, spec, goldOnly = false) {
+  const price = priceOf(spec, goldOnly);
+  if (goldOnly) {
+    return `${Math.ceil(price.gold - player.gold)} gold`;
+  }
   const missing = RESOURCES
     .filter((r) => player[r] < price[r])
     .map((r) => `${Math.ceil(price[r] - player[r])} ${r}`);
@@ -2426,7 +2443,7 @@ export function playerHasTirtha(sim, owner, type) {
   return sim.tirthas.some(t => t.type === type && t.controller === owner);
 }
 
-export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
+export function createSim(seed = 1, mapId = "twoGates", scenarioId = null, goldOnlyMode = false) {
   const scenario = scenarioId && SCENARIOS[scenarioId] ? JSON.parse(JSON.stringify(SCENARIOS[scenarioId])) : null;
   const actualMapId = scenario ? scenario.mapId : mapId;
   const random = makeRng(seed);
@@ -2435,11 +2452,14 @@ export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
   grid.mapId = map.id;
   buildMap(grid, random);
 
+  const isGoldOnly = Boolean(goldOnlyMode);
+
   const sim = {
     seed,
     mapId: grid.mapId,
     scenarioId: scenario ? scenario.id : null,
     scenario,
+    goldOnlyMode: isGoldOnly,
     hazards: [],
     tirthas: [],
     grid,
@@ -2449,9 +2469,9 @@ export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
     players: map.starts.map(([, ], i) => ({
       id: i,
       name: SEAT_NAMES[i] ?? `Player ${i + 1}`,
-      gold: START_GOLD,
-      timber: START_TIMBER,
-      food: START_FOOD,
+      gold: isGoldOnly ? Math.max(350, START_GOLD) : START_GOLD,
+      timber: isGoldOnly ? 0 : START_TIMBER,
+      food: isGoldOnly ? 0 : START_FOOD,
       starving: false,
       path: null,
       pathLocked: false,
@@ -2514,6 +2534,64 @@ export function createSim(seed = 1, mapId = "twoGates", scenarioId = null) {
   const manors = map.starts.map(([sx, sy], owner) =>
     placeBuilding(sim, owner, "manor", sx, sy)
   );
+
+  // Spawn Warrior Kings Battles Fortified Perimeter Wall & Gatehouse around each starting Manor
+  for (const manor of manors) {
+    const owner = manor.owner;
+    const sx = manor.tx;
+    const sy = manor.ty;
+    const enemyHeart = nearestHeartTo(sim, owner, manor);
+    const targetX = enemyHeart ? enemyHeart.x : (sim.grid.w * 16);
+    const targetY = enemyHeart ? enemyHeart.y : (sim.grid.h * 16);
+    const manorCenterX = (sx + 1.5) * TILE;
+    const manorCenterY = (sy + 1.5) * TILE;
+    const dx = targetX - manorCenterX;
+    const dy = targetY - manorCenterY;
+
+    // Determine which side faces the enemy: "north", "south", "east", "west"
+    let gateSide = "south";
+    if (Math.abs(dx) > Math.abs(dy)) {
+      gateSide = dx > 0 ? "east" : "west";
+    } else {
+      gateSide = dy > 0 ? "south" : "north";
+    }
+
+    // Build 5x5 defensive stone perimeter (Manor is 3x3 at [sx..sx+2, sy..sy+2])
+    const x0 = sx - 1, x1 = sx + 3;
+    const y0 = sy - 1, y1 = sy + 3;
+
+    // Gate center coordinate on the chosen side
+    const gateCoords = new Set();
+    if (gateSide === "north") {
+      gateCoords.add(`${sx + 1},${y0}`);
+    } else if (gateSide === "south") {
+      gateCoords.add(`${sx + 1},${y1}`);
+    } else if (gateSide === "west") {
+      gateCoords.add(`${x0},${sy + 1}`);
+    } else {
+      gateCoords.add(`${x1},${sy + 1}`);
+    }
+
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y <= y1; y++) {
+        const isBorder = (x === x0 || x === x1 || y === y0 || y === y1);
+        if (!isBorder) continue;
+        if (x < 0 || x >= sim.grid.w || y < 0 || y >= sim.grid.h) continue;
+
+        const key = `${x},${y}`;
+        if (gateCoords.has(key)) {
+          if (passable(sim.grid, x, y)) {
+            placeBuilding(sim, owner, "gate", x, y);
+          }
+        } else {
+          if (passable(sim.grid, x, y)) {
+            placeBuilding(sim, owner, "wall", x, y);
+          }
+        }
+      }
+    }
+  }
+
   for (const manor of manors) {
     for (let i = 0; i < START_PEASANTS; i++) spawnUnit(sim, manor, "peasant");
   }
@@ -2749,8 +2827,8 @@ export function canBuild(sim, owner, type, tx, ty) {
     };
   }
 
-  if (!canAfford(sim.players[owner], spec)) {
-    return { ok: false, reason: `not enough ${shortfall(sim.players[owner], spec)}` };
+  if (!canAfford(sim.players[owner], spec, sim.goldOnlyMode)) {
+    return { ok: false, reason: `not enough ${shortfall(sim.players[owner], spec, sim.goldOnlyMode)}` };
   }
   if (!sim.units.some((u) => u.owner === owner && u.spec.worker)) {
     return { ok: false, reason: "no peasants to raise it" };
@@ -3008,8 +3086,8 @@ export function canRaise(sim, owner) {
   if (hall.raising) return { ok: false, reason: "your hall is already being raised" };
   if (hall.tier >= MAX_MANOR_TIER) return { ok: false, reason: "a Palace is the last stone" };
   const next = MANOR_TIERS[hall.tier + 1];
-  if (!canAfford(sim.players[owner], next)) {
-    return { ok: false, reason: `not enough ${shortfall(sim.players[owner], next)}` };
+  if (!canAfford(sim.players[owner], next, sim.goldOnlyMode)) {
+    return { ok: false, reason: `not enough ${shortfall(sim.players[owner], next, sim.goldOnlyMode)}` };
   }
   if (!sim.units.some((u) => u.owner === owner && u.spec.worker)) {
     return { ok: false, reason: "no peasants to raise it" };
@@ -3402,7 +3480,7 @@ function applyDueInputs(sim) {
 
     if (input.kind === "build") {
       if (!canBuild(sim, input.owner, input.type, input.tx, input.ty).ok) continue;
-      pay(sim.players[input.owner], BUILDINGS[input.type]);
+      pay(sim.players[input.owner], BUILDINGS[input.type], sim.goldOnlyMode);
       const site = placeSite(sim, input.owner, input.type, input.tx, input.ty);
 
       // Peasants you had selected when you laid it out are the ones who raise
@@ -3460,14 +3538,14 @@ function applyDueInputs(sim) {
       if (!building.spec.trains?.includes(input.unit)) continue;
 
       const spec = UNITS[input.unit];
-      if (!canAfford(sim.players[input.owner], spec)) continue;
+      if (!canAfford(sim.players[input.owner], spec, sim.goldOnlyMode)) continue;
       if (committed(sim, input.owner) >= POP_CAP) {
         say(sim, `No room for another ${spec.name} — you are at the limit.`);
         continue;
       }
       // Paid on ordering, not on delivery — otherwise a player queues twenty
       // units they cannot afford and the barracks decides later who was real.
-      pay(sim.players[input.owner], spec);
+      pay(sim.players[input.owner], spec, sim.goldOnlyMode);
       building.queue.push(input.unit);
       continue;
     }
@@ -3702,7 +3780,7 @@ function applyDueInputs(sim) {
       if (!sapper.spec.erects?.includes(input.type)) continue;
 
       const spec = UNITS[input.type];
-      if (!canAfford(sim.players[input.owner], spec)) {
+      if (!canAfford(sim.players[input.owner], spec, sim.goldOnlyMode)) {
         say(sim, `Not enough gold for a ${spec.name}.`);
         continue;
       }
@@ -3712,7 +3790,7 @@ function applyDueInputs(sim) {
       }
       // Paid on ordering, like everything else, so a sapper cannot start three
       // engines he can only afford one of.
-      pay(sim.players[input.owner], spec);
+      pay(sim.players[input.owner], spec, sim.goldOnlyMode);
       sapper.job = { kind: "erect", type: input.type, work: 0, needed: spec.buildTicks };
       sapper.order = null;
       sapper.chaseId = null;
@@ -4179,6 +4257,7 @@ function upkeepOf(spec) {
 const STARVE_FRACTION = 0.006;
 
 function feedArmy(sim) {
+  if (sim.goldOnlyMode) return;
   if (sim.tick % UPKEEP_EVERY !== 0) return;
 
   // Per player, so one starving side does not touch the other's men.
@@ -4230,7 +4309,7 @@ function abandonJob(sim, unit) {
   if (unit.job && unit.job.kind === "erect") {
     const spec = UNITS[unit.job.type];
     if (spec) {
-      refund(sim.players[unit.owner], spec);
+      refund(sim.players[unit.owner], spec, sim.goldOnlyMode);
       say(sim, `The ${spec.name} is abandoned. Its cost is returned.`);
     }
   }

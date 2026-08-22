@@ -120,18 +120,14 @@ class Swarajya3DApp {
     window.addEventListener("resize", () => this._onResize());
   }
 
-  _initSim(mapId = "kailashSanctum", seed = 94301, localPlayer = 0, scenarioId = null) {
-    if (this.terrain && this.terrain.terrainGroup) {
-      this.scene.remove(this.terrain.terrainGroup);
-    }
-    if (this.renderer3D && this.renderer3D.entityGroup) {
-      this.scene.remove(this.renderer3D.entityGroup);
-    }
+  _initSim(mapId = "twoGates", seed = 94301, localPlayer = 0, scenarioId = null, goldOnly = false) {
+    if (this.terrain) this.terrain.dispose();
+    if (this.renderer3D) this.renderer3D.dispose();
 
     this.localPlayer = localPlayer;
     this.currentMapId = mapId;
     this.currentScenarioId = scenarioId;
-    this.sim = createSim(seed, mapId, scenarioId);
+    this.sim = createSim(seed, mapId, scenarioId, goldOnly);
 
     const actualMapId = this.sim.scenario ? this.sim.scenario.mapId : mapId;
     const map = MAPS[actualMapId] || MAPS.kailashSanctum || MAPS.trishulPass;
@@ -739,6 +735,8 @@ class Swarajya3DApp {
       fowCheck.checked = this.fogOfWarEnabled;
     }
 
+    const goldOnlyCheck = document.getElementById("menu-gold-only-check");
+
     if (startBtn) {
       startBtn.addEventListener("click", () => {
         this._ensureAudio();
@@ -746,8 +744,9 @@ class Swarajya3DApp {
         this.currentMapId = mapSelect.value;
         this.currentAiTier = parseInt(aiSelect.value, 10);
         this.fogOfWarEnabled = fowCheck.checked;
+        const goldOnly = goldOnlyCheck ? goldOnlyCheck.checked : false;
 
-        this._initSim(this.currentMapId, 94301, 0);
+        this._initSim(this.currentMapId, 94301, 0, null, goldOnly);
         menuModal.style.display = "none";
       });
     }
@@ -1311,9 +1310,15 @@ class Swarajya3DApp {
     const p = this.sim.players[this.localPlayer];
     if (!p) return;
 
-    document.getElementById("hud-gold").textContent = `${Math.floor(p.gold)}`;
-    document.getElementById("hud-timber").textContent = `${Math.floor(p.timber)}`;
-    document.getElementById("hud-food").textContent = `${Math.floor(p.food)} / 2000`;
+    if (this.sim.goldOnlyMode) {
+      document.getElementById("hud-gold").textContent = `${Math.floor(p.gold)}`;
+      document.getElementById("hud-timber").textContent = `— (Gold Only)`;
+      document.getElementById("hud-food").textContent = `∞ (Abundant)`;
+    } else {
+      document.getElementById("hud-gold").textContent = `${Math.floor(p.gold)}`;
+      document.getElementById("hud-timber").textContent = `${Math.floor(p.timber)}`;
+      document.getElementById("hud-food").textContent = `${Math.floor(p.food)} / 2000`;
+    }
     document.getElementById("hud-pop").textContent = `${this.sim.units.filter(u => u.owner === this.localPlayer).length} / 240`;
 
     if (this.sky) {
