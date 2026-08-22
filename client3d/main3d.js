@@ -694,6 +694,9 @@ class Swarajya3DApp {
       if (balEl) balEl.textContent = `Balance: ${info.balance.toFixed(4)} SOL`;
       if (btnEl) btnEl.textContent = `🟣 Connected (${this.solanaWallet.getShortAddress()})`;
 
+      const mpAddr = document.getElementById("mp-sol-addr");
+      if (mpAddr) mpAddr.textContent = `${this.solanaWallet.getShortAddress()} (${info.balance.toFixed(2)} SOL)`;
+
       this._showNotice(`✓ Solana Wallet Connected: ${this.solanaWallet.getShortAddress()}`, "#c77dff");
       this.loreAudio.playTempleBell(720);
     } catch (err) {

@@ -644,18 +644,43 @@
         </div>
       </div>
 
-      <!-- Online 1v1 Multiplayer Panel -->
+      <!-- Online 1v1 Solana Wager Arena Panel -->
       <div id="panel-mp" class="menu-panel">
+        <div style="background:rgba(155,93,229,0.12); border:1.5px solid #9b5de5; border-radius:8px; padding:12px; margin-bottom:14px; text-align:left;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-family:'Cinzel',serif; font-weight:bold; color:#ffd166; font-size:13px;">⚔️ 1v1 SOLANA WAGER BATTLES</span>
+            <span style="font-size:10px; background:#9b5de5; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">SVM Escrow</span>
+          </div>
+          <p style="font-size:11px; color:#e0e7ff; margin-bottom:8px; line-height:1.4;">
+            High-speed tactical RTS duels with pure Gold Economy. Winner receives 97% of the escrow pot.
+          </p>
+          <div style="display:flex; align-items:center; justify-content:space-between; background:#0f131d; padding:8px 12px; border-radius:6px; border:1px solid #2b3140;">
+            <div id="mp-sol-status" style="font-size:11px; color:#c77dff;">🟣 Phantom / Solflare: <span id="mp-sol-addr" style="color:#ffd166;">Not connected</span></div>
+            <button onclick="window.app3D && window.app3D._connectSolanaWallet()" style="background:#9b5de5; border:none; color:#fff; font-size:11px; font-weight:bold; padding:4px 10px; border-radius:4px; cursor:pointer;">Connect</button>
+          </div>
+        </div>
+
+        <!-- Wager Preset Tiers -->
+        <div style="text-align:left; margin-bottom:12px;">
+          <label style="font-size:11px; color:#9ca3af; display:block; margin-bottom:6px; font-weight:600;">Select Match Wager Pot:</label>
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px;">
+            <button class="quality-btn" onclick="selectWagerTier(0, this)">Free</button>
+            <button class="quality-btn active" onclick="selectWagerTier(0.05, this)">0.05 SOL</button>
+            <button class="quality-btn" onclick="selectWagerTier(0.10, this)">0.10 SOL</button>
+            <button class="quality-btn" onclick="selectWagerTier(0.50, this)">0.50 SOL</button>
+          </div>
+        </div>
+
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-          <button id="menu-host-btn" class="menu-btn-primary" style="margin-top:0; flex:1;">Host Realm Room</button>
+          <button id="menu-host-btn" class="menu-btn-primary" style="margin-top:0; flex:1; background:linear-gradient(135deg, #9b5de5, #f4a261);">⚔️ Create 1v1 Arena Room</button>
         </div>
 
         <div style="border-top:1px solid #2b3140; padding-top:12px; margin-top:8px;">
           <div class="menu-row">
-            <label>Friend's Realm Code</label>
+            <label>Friend's Arena Realm Code</label>
             <input type="text" id="menu-join-code" class="menu-input" placeholder="e.g. KSET9" maxlength="5">
           </div>
-          <button id="menu-join-btn" class="menu-btn-primary" style="margin-top:4px; background:#457b9d;">Join Realm Room</button>
+          <button id="menu-join-btn" class="menu-btn-primary" style="margin-top:4px; background:#457b9d;">⚡ Join Arena Match</button>
         </div>
 
         <div id="mp-status-msg"></div>
@@ -829,6 +854,14 @@
       document.getElementById('tab-sol-btn').classList.toggle('active', chain === 'sol');
       document.getElementById('panel-chain-abs').style.display = chain === 'abs' ? 'block' : 'none';
       document.getElementById('panel-chain-sol').style.display = chain === 'sol' ? 'block' : 'none';
+    }
+
+    function selectWagerTier(amt, btn) {
+      window.selectedWagerAmount = amt;
+      if (btn && btn.parentElement) {
+        btn.parentElement.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      }
     }
   </script>
 
