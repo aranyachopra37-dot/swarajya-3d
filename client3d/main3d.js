@@ -801,6 +801,18 @@ class Swarajya3DApp {
       });
     }
 
+    // Auto-populate connected Solana wallet state if previously stored
+    if (this.solanaWallet && this.solanaWallet.publicKey) {
+      const mpAddr = document.getElementById("mp-sol-addr");
+      if (mpAddr) mpAddr.textContent = `${this.solanaWallet.getShortAddress()}`;
+      const statusEl = document.getElementById("sol-wallet-status");
+      const pubkeyEl = document.getElementById("sol-wallet-pubkey");
+      const btnEl = document.getElementById("sol-connect-btn");
+      if (statusEl) statusEl.textContent = `✓ Connected`;
+      if (pubkeyEl) pubkeyEl.textContent = this.solanaWallet.publicKey;
+      if (btnEl) btnEl.textContent = `🟣 Connected (${this.solanaWallet.getShortAddress()})`;
+    }
+
     // Quality selector buttons
     const savedQuality = localStorage.getItem("swarajya_graphics_quality") || "high";
     this.setGraphicsQuality(savedQuality);
