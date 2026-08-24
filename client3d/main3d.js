@@ -1760,7 +1760,40 @@ class Swarajya3DApp {
 window.addEventListener("DOMContentLoaded", () => {
   window.app3D = new Swarajya3DApp();
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("autostart") === "1") {
+
+  // Gold Only economy mode flag
+  if (urlParams.get("gold_only") === "1" || urlParams.get("mode") === "gold") {
+    window.app3D.goldOnlyMode = true;
+    const goldCheck = document.getElementById("menu-gold-only-check");
+    if (goldCheck) goldCheck.checked = true;
+  }
+
+  // Wager amount flag
+  if (urlParams.has("wager")) {
+    const wager = parseFloat(urlParams.get("wager")) || 0;
+    window.app3D.matchWager = wager;
+    if (wager > 0) {
+      window.app3D._showNotice(`⚔️ 1v1 Solana Wager Match: ${wager} SOL Pot (4% Protocol Fee)`, "#ffd166");
+    }
+  }
+
+  // Direct room joining or hosting from Twitter / Arena link
+  const roomCode = urlParams.get("room");
+  const isHost = urlParams.get("host") === "1";
+
+  if (roomCode) {
+    setTimeout(() => {
+      if (window.app3D && window.app3D.mp) {
+        if (isHost) {
+          window.app3D.mp.hostRoom(window.app3D.currentMapId, window.app3D.fogOfWarEnabled);
+        } else {
+          const joinInput = document.getElementById("menu-join-code");
+          if (joinInput) joinInput.value = roomCode;
+          window.app3D.mp.joinRoom(roomCode);
+        }
+      }
+    }, 400);
+  } else if (urlParams.get("autostart") === "1") {
     setTimeout(() => {
       if (window.app3D) window.app3D._startMatch();
     }, 200);

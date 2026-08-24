@@ -18,6 +18,7 @@ export class SolanaWalletManager {
     this.balance = 0;
     this.network = "mainnet-beta";
     this.treasury = SWARAJYA_SOLANA_TREASURY;
+    this.creatorFee = 0.04; // 4% Creator Protocol Rake
 
     if (this.publicKey) {
       this.fetchBalance();
